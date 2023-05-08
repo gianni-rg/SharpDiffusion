@@ -48,7 +48,7 @@ public class DiffusionPipelineFactory
         var textEncoder = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "text_encoder"), provider: provider, sessionOptions: sessionOptions);
         var unet = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "unet"), provider: provider, sessionOptions: sessionOptions);
         var safetyChecker = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "safety_checker"), provider: provider, sessionOptions: sessionOptions);
-        var tokenizer = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "tokenizer"), provider: provider, sessionOptions: sessionOptions, ortExtensionPath: "ortextensions.dll"); // TODO: improve configuration
+        var tokenizer = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "tokenizer"), provider: provider, sessionOptions: sessionOptions, ortExtensionPath: ".\\runtimes\\win-x64\\native\\ortextensions.dll"); // TODO: improve configuration
 
         IScheduler scheduler = new LMSDiscreteScheduler();
 
