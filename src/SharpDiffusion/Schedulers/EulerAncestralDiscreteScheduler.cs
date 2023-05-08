@@ -17,7 +17,7 @@
 // Copyright (C) 2023 Cassie Breviu.
 // Licensed under the MIT License.
 
-namespace GenAIPlayground.StableDiffusion.MLModels.Schedulers;
+namespace SharpDiffusion.Schedulers;
 
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;

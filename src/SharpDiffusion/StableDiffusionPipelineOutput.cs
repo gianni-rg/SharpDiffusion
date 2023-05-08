@@ -17,7 +17,7 @@
 // Copyright (C) 2022-2023 The HuggingFace Inc. team.
 // Licensed under the Apache License, Version 2.0.
 
-namespace GenAIPlayground.StableDiffusion.MLModels;
+namespace SharpDiffusion;
 
 /// <summary>
 /// Output class for Stable Diffusion pipelines

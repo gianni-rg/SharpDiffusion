@@ -17,10 +17,10 @@
 // Copyright (C) 2022-2023 The HuggingFace Inc. team.
 // Licensed under the Apache License, Version 2.0.
 
-namespace GenAIPlayground.StableDiffusion.MLModels;
+namespace SharpDiffusion;
 
-using GenAIPlayground.StableDiffusion.MLModels.Interfaces;
-using GenAIPlayground.StableDiffusion.MLModels.Schedulers;
+using SharpDiffusion.Interfaces;
+using SharpDiffusion.Schedulers;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
