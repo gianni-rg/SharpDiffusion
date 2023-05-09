@@ -65,7 +65,7 @@ public abstract class SchedulerBase : IScheduler
             // If timesteps[i] is greater than the last element in range, use the last value in sigmas
             else if (index == -range.Length - 1)
             {
-                result[i] = sigmas[-1];
+                result[i] = sigmas[^1];
             }
 
             // Otherwise, interpolate linearly between two adjacent values in sigmas

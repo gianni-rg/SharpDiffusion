@@ -26,6 +26,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using SharpDiffusion.Schedulers;
 
 public class OnnxStableDiffusionPipeline : DiffusionPipeline
 {
@@ -35,7 +36,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
     private readonly OnnxRuntimeModel _textEncoder;
     private readonly OnnxRuntimeModel _tokenizer;
     private readonly OnnxRuntimeModel _unet;
-    private readonly IScheduler _scheduler;
+    private IScheduler _scheduler;
     private readonly OnnxRuntimeModel _safetyChecker;
 
     public object textInputIds { get; private set; }
@@ -61,7 +62,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         }
     }
 
-    public override StableDiffusionPipelineOutput Run(List<string> prompts, List<string> negativePrompts, StableDiffusionConfig config)
+    public override StableDiffusionPipelineOutput Run(List<string> prompts, List<string> negativePrompts, StableDiffusionConfig config, Action<int>? callback = null)
     {
         var batchSize = prompts.Count;
 
@@ -81,6 +82,9 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         var doClassifierFreeGuidance = config.GuidanceScale > 1.0f;
 
         var textEmbeddings = EncodePrompts(prompts, doClassifierFreeGuidance, negativePrompts, config);
+
+        //TODO: Need to recreate for each execution, as the scheduler is stateful (!?), investigate
+        _scheduler = new LMSDiscreteScheduler();
 
         // Get the initial random noise (unless the user supplied it)
         var latents = GenerateLatentSamples(batchSize, generator, config, _scheduler.InitNoiseSigma);
@@ -121,10 +125,11 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
             latents = _scheduler.Step(noisePred, _scheduler.Timesteps[t], latents);
 
             // Call the callback, if provided
-            //if (callback is not null && t % config.CallbackSteps == 0)
-            //{
-            //    callback(t, latents);
-            //}
+            if (callback is not null && t % config.CallbackSteps == 0)
+            {
+                //callback(t, latents);
+                callback(t);
+            }
         }
 
         // Scale and decode the image latents with VAE
@@ -152,7 +157,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         //var imageResultTensor = decoderOutput.First().Value as Tensor<float>;
 
         // TODO: implement safety checker model
-        List<byte[]>? hasNsfwConcept = null;
+        List<bool[]>? hasNsfwConcept = null;
         if (_safetyChecker is not null)
         {
             //var safetyCheckerInput = _featureExtractor(numpy_to_pil(image), return_tensors: "np").pixel_values.astype(image.dtype);
@@ -170,13 +175,22 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
             //image = np.concatenate(images);
         }
 
+        //TODO: to be fully ported from Python
+        // see: https://docs.sixlabors.com/articles/imagesharp/pixelbuffers.html
+        // Rgba32[] pixelArray = new Rgba32[image.Width * image.Height]
+        // image.CopyPixelDataTo(pixelArray);
+        //byte[] rgbaBytes = GetMyRgbaBytes();
+        //using (var image = Image.LoadPixelData<Rgba32>(rgbaBytes, width, height))
+        //{
+        //    // Work with the image
+        //}
+
         //if (outputType == "image")
         //{
         var images = ConvertToImages(resultTensors, config);
         //}
 
-        //return new StableDiffusionPipelineOutput(images: image, nsfwContentDetected: hasNsfwConcept);
-        return new StableDiffusionPipelineOutput(images: new List<byte[]>(), nsfwContentDetected: hasNsfwConcept);
+        return new StableDiffusionPipelineOutput(images: images, nsfwContentDetected: hasNsfwConcept);
     }
 
 
@@ -421,17 +435,13 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
                 for (var x = 0; x < config.Width; x++)
                 {
                     result[x, y] = new Rgba32(
-                        (byte)(Math.Round(Math.Clamp((output[i][0, 0, y, x] / 2 + 0.5), 0, 1) * 255)),
-                        (byte)(Math.Round(Math.Clamp((output[i][0, 1, y, x] / 2 + 0.5), 0, 1) * 255)),
-                        (byte)(Math.Round(Math.Clamp((output[i][0, 2, y, x] / 2 + 0.5), 0, 1) * 255))
+                        (byte)Math.Round(Math.Clamp(output[i][0, 0, y, x] / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(output[i][0, 1, y, x] / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(output[i][0, 2, y, x] / 2 + 0.5, 0, 1) * 255)
                     );
                 }
             }
 
-            var imageName = $"sd_image_{DateTime.Now.ToString("yyyyMMddHHmm")}_{i}.png";
-            var imagePath = Path.Combine(Directory.GetCurrentDirectory(), config.ImageOutputPath, imageName);
-
-            result.Save(imagePath);
             results.Add(result);
         }
 

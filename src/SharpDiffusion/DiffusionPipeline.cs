@@ -30,5 +30,5 @@ public abstract class DiffusionPipeline : IDiffusionPipeline
     public static readonly string MODEL_CONFIG_FILENAME = "model_index.json";
     public static readonly string ONNX_WEIGHTS_NAME = "model.onnx";
 
-    public abstract StableDiffusionPipelineOutput Run(List<string> prompts, List<string> negativePrompts, StableDiffusionConfig config);
+    public abstract StableDiffusionPipelineOutput Run(List<string> prompts, List<string> negativePrompts, StableDiffusionConfig config, Action<int>? callback = null);
 }
