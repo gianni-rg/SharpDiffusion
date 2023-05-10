@@ -25,7 +25,7 @@ using NumSharp;
 
 public class LMSDiscreteScheduler : SchedulerBase
 {
-    private string _predictionType;
+    private readonly string _predictionType;
 
     public List<Tensor<float>> Derivatives;
 
@@ -74,6 +74,10 @@ public class LMSDiscreteScheduler : SchedulerBase
         InitNoiseSigma = (float)sigmas.Max();
     }
 
+    public override void Dispose()
+    {
+    }
+
     private double GetLmsCoefficient(int order, int t, int currentOrder)
     {
         // Compute a linear multistep coefficient
@@ -108,8 +112,8 @@ public class LMSDiscreteScheduler : SchedulerBase
         var sigmas = _alphasCumulativeProducts.Select(alpha_prod => Math.Sqrt((1 - alpha_prod) / alpha_prod)).Reverse().ToList();
         var range = np.arange(0, (double)sigmas.Count).ToArray<double>();
         sigmas = Interpolate(timesteps, range, sigmas).ToList();
-        Sigmas = new DenseTensor<float>(sigmas.Count());
-        for (int i = 0; i < sigmas.Count(); i++)
+        Sigmas = new DenseTensor<float>(sigmas.Count);
+        for (int i = 0; i < sigmas.Count; i++)
         {
             Sigmas[i] = (float)sigmas[i];
         }
@@ -178,13 +182,13 @@ public class LMSDiscreteScheduler : SchedulerBase
         var lmsCoeffsAndDerivatives = lmsCoeffs.Zip(revDerivatives, (lmsCoeff, derivative) => (lmsCoeff, derivative));
 
         // Create tensor for product of lmscoeffs and derivatives
-        var lmsDerProduct = new Tensor<float>[Derivatives.Count()];
+        var lmsDerProduct = new Tensor<float>[Derivatives.Count];
 
         for (int m = 0; m < lmsCoeffsAndDerivatives.Count(); m++)
         {
-            var item = lmsCoeffsAndDerivatives.ElementAt(m);
+            var (lmsCoeff, derivative) = lmsCoeffsAndDerivatives.ElementAt(m);
             // Multiply to coeff by each derivatives to create the new tensors
-            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(item.derivative.ToArray(), (float)item.lmsCoeff, item.derivative.Dimensions.ToArray());
+            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (float)lmsCoeff, derivative.Dimensions.ToArray());
         }
 
         // Sum the tensors

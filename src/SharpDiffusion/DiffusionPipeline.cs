@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Ported/based on Hugging Face Diffusers library
-// (https://github.com/huggingface/diffusers)
-// Copyright (C) 2022-2023 The HuggingFace Inc. team.
-// Licensed under the Apache License, Version 2.0.
-
 namespace SharpDiffusion;
 
 using SharpDiffusion.Interfaces;
@@ -25,10 +20,40 @@ using SharpDiffusion.Interfaces;
 /// Base class for all models.<br />
 /// <c>DiffusionPipeline</c> takes care of storing all components (models, schedulers, processors) for diffusion pipelines.
 /// </summary>
-public abstract class DiffusionPipeline : IDiffusionPipeline
+public abstract class DiffusionPipeline : IDiffusionPipeline, IDisposable
 {
     public static readonly string MODEL_CONFIG_FILENAME = "model_index.json";
     public static readonly string ONNX_WEIGHTS_NAME = "model.onnx";
+    protected bool _disposed;
 
     public abstract StableDiffusionPipelineOutput Run(List<string> prompts, List<string> negativePrompts, StableDiffusionConfig config, Action<int>? callback = null);
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // TODO: dispose managed state (managed objects)
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+            // TODO: set large fields to null
+            _disposed = true;
+        }
+    }
+
+    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+    // ~DiffusionPipeline()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }

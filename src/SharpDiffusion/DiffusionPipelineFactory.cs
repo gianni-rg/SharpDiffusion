@@ -19,9 +19,8 @@
 
 namespace SharpDiffusion;
 
-using SharpDiffusion.Interfaces;
-using SharpDiffusion.Schedulers;
 using Microsoft.Extensions.Logging;
+using SharpDiffusion.Schedulers;
 using System.Text.Json;
 
 public class DiffusionPipelineFactory
@@ -49,10 +48,9 @@ public class DiffusionPipelineFactory
         var unet = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "unet"), provider: provider, sessionOptions: sessionOptions);
         var safetyChecker = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "safety_checker"), provider: provider, sessionOptions: sessionOptions);
         var tokenizer = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "tokenizer"), provider: provider, sessionOptions: sessionOptions, ortExtensionPath: ".\\runtimes\\win-x64\\native\\ortextensions.dll"); // TODO: improve configuration
+        var schedulerType = SchedulerType.LMSDiscreteScheduler; // TODO: improve configuration
 
-        IScheduler scheduler = new LMSDiscreteScheduler();
-
-        return new OnnxStableDiffusionPipeline(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, scheduler, safetyChecker, requiresSafetyChecker: false);
+        return new OnnxStableDiffusionPipeline(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
     }
 
     private static Dictionary<string, object> DictFromJSONFile(string configFile)

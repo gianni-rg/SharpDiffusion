@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace SharpDiffusion.Interfaces;
+namespace SharpDiffusion.Schedulers;
 
-using Microsoft.ML.OnnxRuntime.Tensors;
+using SharpDiffusion.Interfaces;
 
-public interface IScheduler : IDisposable
+public class SchedulerFactory
 {
-    List<int> Timesteps { get; }
-    float InitNoiseSigma { get; }
-    void SetTimesteps(int numInferenceSteps);
-    DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
-    Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep);
+    public IScheduler GetScheduler(SchedulerType schedulerType)
+    {
+        return schedulerType switch
+        {
+            SchedulerType.LMSDiscreteScheduler => new LMSDiscreteScheduler(),
+            SchedulerType.EulerAncestralDiscreteScheduler => new EulerAncestralDiscreteScheduler(),
+            _ => throw new InvalidOperationException($"Unsupported scheduler type '{schedulerType}'"),
+        };
+    }
 }

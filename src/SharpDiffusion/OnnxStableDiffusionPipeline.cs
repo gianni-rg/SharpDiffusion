@@ -19,14 +19,14 @@
 
 namespace SharpDiffusion;
 
-using SharpDiffusion.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using SharpDiffusion.Interfaces;
+using SharpDiffusion.Schedulers;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using SharpDiffusion.Schedulers;
 
 public class OnnxStableDiffusionPipeline : DiffusionPipeline
 {
@@ -36,12 +36,13 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
     private readonly OnnxRuntimeModel _textEncoder;
     private readonly OnnxRuntimeModel _tokenizer;
     private readonly OnnxRuntimeModel _unet;
-    private IScheduler _scheduler;
+    private readonly SchedulerType _schedulerType;
+    private readonly SchedulerFactory _schedulerFactory;
     private readonly OnnxRuntimeModel _safetyChecker;
 
     public object textInputIds { get; private set; }
 
-    public OnnxStableDiffusionPipeline(ILogger? logger, OnnxRuntimeModel vaeEncoder, OnnxRuntimeModel vaeDecoder, OnnxRuntimeModel textEncoder, OnnxRuntimeModel tokenizer, OnnxRuntimeModel unet, IScheduler scheduler, OnnxRuntimeModel safetyChecker, bool requiresSafetyChecker = true) : base()
+    public OnnxStableDiffusionPipeline(ILogger? logger, OnnxRuntimeModel vaeEncoder, OnnxRuntimeModel vaeDecoder, OnnxRuntimeModel textEncoder, OnnxRuntimeModel tokenizer, OnnxRuntimeModel unet, SchedulerType schedulerType, OnnxRuntimeModel safetyChecker, bool requiresSafetyChecker = true) : base()
     {
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<OnnxStableDiffusionPipeline>.Instance;
         _vaeEncoder = vaeEncoder;
@@ -49,8 +50,10 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         _textEncoder = textEncoder;
         _tokenizer = tokenizer;
         _unet = unet;
-        _scheduler = scheduler;
         _safetyChecker = safetyChecker;
+
+        _schedulerType = schedulerType;
+        _schedulerFactory = new SchedulerFactory();
 
         if (_safetyChecker is null && requiresSafetyChecker)
         {
@@ -59,6 +62,26 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
                " strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling" +
                " it only for use-cases that involve analyzing network behavior or auditing its results. For more" +
                " information, please have a look at https://github.com/huggingface/diffusers/pull/254.");
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                _vaeEncoder.Dispose();
+                _vaeDecoder.Dispose();
+                _textEncoder.Dispose();
+                _tokenizer.Dispose();
+                _unet.Dispose();
+                _safetyChecker.Dispose();
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+            // TODO: set large fields to null
+            _disposed = true;
         }
     }
 
@@ -83,25 +106,25 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
 
         var textEmbeddings = EncodePrompts(prompts, doClassifierFreeGuidance, negativePrompts, config);
 
-        //TODO: Need to recreate for each execution, as the scheduler is stateful (!?), investigate
-        _scheduler = new LMSDiscreteScheduler();
+        //TODO: Need to recreate for each execution, as the scheduler is stateful (!?); to be investigated
+        var scheduler = _schedulerFactory.GetScheduler(_schedulerType);
 
         // Get the initial random noise (unless the user supplied it)
-        var latents = GenerateLatentSamples(batchSize, generator, config, _scheduler.InitNoiseSigma);
+        var latents = GenerateLatentSamples(batchSize, generator, config, scheduler.InitNoiseSigma);
 
         // Set timesteps
-        _scheduler.SetTimesteps(config.NumInferenceSteps);
+        scheduler.SetTimesteps(config.NumInferenceSteps);
 
         var input = new List<NamedOnnxValue>();
-        for (int t = 0; t < _scheduler.Timesteps.Count; t++)
+        for (int t = 0; t < scheduler.Timesteps.Count; t++)
         {
             // Expand the latents if we are doing classifier free guidance
             var latentModelInput = doClassifierFreeGuidance ? TensorHelper.Duplicate(latents.ToArray(), new[] { 2 * batchSize * config.NumImagesPerPrompt, config.Channels, config.Height / 8, config.Width / 8 }) : latents;
-            latentModelInput = _scheduler.ScaleModelInput(latentModelInput, _scheduler.Timesteps[t]);
+            latentModelInput = scheduler.ScaleModelInput(latentModelInput, scheduler.Timesteps[t]);
 
             // Predict the noise residual
             //var noisePred = _unet.Score(sample = latentModelInput, timestep = _scheduler.Timesteps[t], encoderHiddenStates = textEmbeddings);
-            input = CreateUnetModelInput(textEmbeddings, latentModelInput, _scheduler.Timesteps[t]);
+            input = CreateUnetModelInput(textEmbeddings, latentModelInput, scheduler.Timesteps[t]);
 
             // Run Inference
             var unetOutput = _unet.Run(input);
@@ -122,7 +145,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
             // Compute the previous noisy sample x_t -> x_t-1
             //scheduler_output = self.scheduler.step(torch.from_numpy(noise_pred), t, torch.from_numpy(latents), **extra_step_kwargs);
             //latents = scheduler_output.prev_sample.numpy();
-            latents = _scheduler.Step(noisePred, _scheduler.Timesteps[t], latents);
+            latents = scheduler.Step(noisePred, scheduler.Timesteps[t], latents);
 
             // Call the callback, if provided
             if (callback is not null && t % config.CallbackSteps == 0)
@@ -189,6 +212,8 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         //{
         var images = ConvertToImages(resultTensors, config);
         //}
+
+        scheduler.Dispose();
 
         return new StableDiffusionPipelineOutput(images: images, nsfwContentDetected: hasNsfwConcept);
     }
@@ -280,7 +305,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
             // Here we concatenate the unconditional and text embeddings into a single batch to avoid doing two forward passes.
             //text_embeddings = np.concatenate([uncond_embeddings, text_embeddings]);
             var textEmbeddingsTensor = TensorHelper.Concatenate(uncondEmbeddings.ToArray(), textEmbeddings.ToArray(), new[] { 2 * batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
-            
+
             //DenseTensor<float> textEmbeddingsTensor = new DenseTensor<float>(new[] { 2 * batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
             //for (var i = 0; i < textEmbeddings.Length; i++)
             //{
@@ -415,7 +440,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
                 49406
             };
 
-            var pad = Enumerable.Repeat(blankTokenValue, config.TokenizerModelMaxLength - inputIds.Count()).ToArray();
+            var pad = Enumerable.Repeat(blankTokenValue, config.TokenizerModelMaxLength - inputIds.Count).ToArray();
             inputIds.AddRange(pad);
 
             batchedInputIds.Add(inputIds.ToArray());

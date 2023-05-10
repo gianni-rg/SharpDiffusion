@@ -23,7 +23,7 @@ using SharpDiffusion.Interfaces;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 
-public abstract class SchedulerBase : IScheduler
+public abstract class SchedulerBase : IScheduler, IDisposable
 {
     protected readonly int _numTrainTimesteps;
     protected List<float> _alphasCumulativeProducts;
@@ -103,4 +103,5 @@ public abstract class SchedulerBase : IScheduler
     public abstract void SetTimesteps(int numInferenceSteps);
 
     public abstract DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
+    public abstract void Dispose();
 }

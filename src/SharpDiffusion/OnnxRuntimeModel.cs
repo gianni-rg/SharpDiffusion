@@ -21,11 +21,12 @@ namespace SharpDiffusion;
 
 using Microsoft.ML.OnnxRuntime;
 
-public class OnnxRuntimeModel
+public class OnnxRuntimeModel : IDisposable
 {
-    private InferenceSession _model;
-    private string? _modelSaveDir;
-    private string? _latestModelName;
+    private readonly InferenceSession _model;
+    private readonly string? _modelSaveDir;
+    private readonly string? _latestModelName;
+    private bool _disposed;
 
     public OnnxRuntimeModel(InferenceSession model, string? modelSaveDir = null, string? latestModelName = null)
     {
@@ -42,16 +43,13 @@ public class OnnxRuntimeModel
 	/// <param name="sessionOptions"></param>
     private static InferenceSession LoadModel(string path, string? provider = null, Dictionary<string, string>? sessionOptions = null, string? ortExtensionsPath = null)
     {
-        if (provider is null)
-        {
-            provider = "CPUExecutionProvider";
-        }
+        provider ??= "CPUExecutionProvider";
 
         SessionOptions options;
         
         if (provider == "CUDAExecutionProvider")
         {
-            OrtCUDAProviderOptions providerOptions = new OrtCUDAProviderOptions();
+            var providerOptions = new OrtCUDAProviderOptions();
             providerOptions.UpdateOptions(sessionOptions);
             options = SessionOptions.MakeSessionOptionWithCudaProvider(providerOptions);
         }
@@ -122,5 +120,35 @@ public class OnnxRuntimeModel
     public IDisposableReadOnlyCollection<DisposableNamedOnnxValue> Run(IReadOnlyCollection<NamedOnnxValue> inputs)
     {
         return _model.Run(inputs);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Dispose managed state (managed objects)
+                _model.Dispose();
+            }
+
+            // Free unmanaged resources (unmanaged objects) and override finalizer
+            // Set large fields to null
+            _disposed = true;
+        }
+    }
+
+    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+    // ~OnnxRuntimeModel()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }

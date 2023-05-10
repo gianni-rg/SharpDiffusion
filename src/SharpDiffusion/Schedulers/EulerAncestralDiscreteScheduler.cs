@@ -144,4 +144,7 @@ public class EulerAncestralDiscreteScheduler : SchedulerBase
         return prevSample;
     }
 
+    public override void Dispose()
+    {
+    }
 }
