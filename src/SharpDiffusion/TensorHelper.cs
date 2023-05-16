@@ -12,23 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Based on 'Inference Stable Diffusion with C# and ONNX Runtime' sample code
-// (https://github.com/cassiebreviu/StableDiffusion/)
-// Copyright (C) 2023 Cassie Breviu.
-// Licensed under the MIT License.
-
 namespace SharpDiffusion;
 
 using Microsoft.ML.OnnxRuntime.Tensors;
+using System.Numerics;
 
-public class TensorHelper
+public class TensorHelper<TTensorType>
+    where TTensorType : INumber<TTensorType>
 {
-    public static DenseTensor<T> CreateTensor<T>(T[] data, int[] dimensions)
+    public static DenseTensor<TTensorType> CreateTensor(TTensorType[] data, int[] dimensions)
     {
-        return new DenseTensor<T>(data, dimensions); ;
+        return new DenseTensor<TTensorType>(data, dimensions); ;
     }
 
-    public static DenseTensor<float> DivideTensorByFloat(float[] data, float value, int[] dimensions)
+    public static DenseTensor<TTensorType> DivideTensorByFloat(TTensorType[] data, TTensorType value, int[] dimensions)
     {
         for (int i = 0; i < data.Length; i++)
         {
@@ -38,7 +35,7 @@ public class TensorHelper
         return CreateTensor(data, dimensions);
     }
 
-    public static DenseTensor<float> MultipleTensorByFloat(float[] data, float value, int[] dimensions)
+    public static DenseTensor<TTensorType> MultipleTensorByFloat(TTensorType[] data, TTensorType value, int[] dimensions)
     {
         for (int i = 0; i < data.Length; i++)
         {
@@ -48,29 +45,29 @@ public class TensorHelper
         return CreateTensor(data, dimensions);
     }
 
-    public static DenseTensor<float> MultipleTensorByFloat(Tensor<float> data, float value)
+    public static DenseTensor<TTensorType> MultipleTensorByFloat(Tensor<TTensorType> data, TTensorType value)
     {
         return MultipleTensorByFloat(data.ToArray(), value, data.Dimensions.ToArray());
     }
 
-    public static DenseTensor<float> AddTensors(float[] sample, float[] sumTensor, int[] dimensions)
+    public static DenseTensor<TTensorType> AddTensors(TTensorType[] sample, TTensorType[] sumTensor, int[] dimensions)
     {
-        for(var i=0; i < sample.Length; i++)
+        for (var i = 0; i < sample.Length; i++)
         {
             sample[i] = sample[i] + sumTensor[i];
         }
         return CreateTensor(sample, dimensions); ;
     }
 
-    public static DenseTensor<float> AddTensors(Tensor<float> sample, Tensor<float> sumTensor)
+    public static DenseTensor<TTensorType> AddTensors(Tensor<TTensorType> sample, Tensor<TTensorType> sumTensor)
     {
         return AddTensors(sample.ToArray(), sumTensor.ToArray(), sample.Dimensions.ToArray());
     }
 
-    public static Tuple<Tensor<float>, Tensor<float>> SplitTensor(Tensor<float> tensorToSplit, int[] dimensions)
+    public static Tuple<Tensor<TTensorType>, Tensor<TTensorType>> SplitTensor(Tensor<TTensorType> tensorToSplit, int[] dimensions)
     {
-        var tensor1 = new DenseTensor<float>(dimensions);
-        var tensor2 = new DenseTensor<float>(dimensions);
+        var tensor1 = new DenseTensor<TTensorType>(dimensions);
+        var tensor2 = new DenseTensor<TTensorType>(dimensions);
 
         for (int i = 0; i < dimensions[0]; i++)
         {
@@ -86,10 +83,10 @@ public class TensorHelper
                 }
             }
         }
-        return new Tuple<Tensor<float>, Tensor<float>>(tensor1, tensor2);
+        return new Tuple<Tensor<TTensorType>, Tensor<TTensorType>>(tensor1, tensor2);
     }
 
-    public static Tuple<Tensor<float>, Tensor<float>> SplitTensor(Tensor<float> tensorToSplit, int sections)
+    public static Tuple<Tensor<TTensorType>, Tensor<TTensorType>> SplitTensor(Tensor<TTensorType> tensorToSplit, int sections)
     {
         var slicedStrides = tensorToSplit.Dimensions[0] / sections;
         var newDimensions = new int[] {
@@ -98,42 +95,42 @@ public class TensorHelper
             tensorToSplit.Dimensions[2],
             tensorToSplit.Dimensions[3]
         };
-        var tensor1 = new DenseTensor<float>((tensorToSplit as DenseTensor<float>)!.Buffer.Slice(0 * slicedStrides * tensorToSplit.Strides[0], slicedStrides * tensorToSplit.Strides[0]), newDimensions);
-        var tensor2 = new DenseTensor<float>((tensorToSplit as DenseTensor<float>)!.Buffer.Slice(1 * slicedStrides * tensorToSplit.Strides[0], slicedStrides * tensorToSplit.Strides[0]), newDimensions);
+        var tensor1 = new DenseTensor<TTensorType>((tensorToSplit as DenseTensor<TTensorType>)!.Buffer.Slice(0 * slicedStrides * tensorToSplit.Strides[0], slicedStrides * tensorToSplit.Strides[0]), newDimensions);
+        var tensor2 = new DenseTensor<TTensorType>((tensorToSplit as DenseTensor<TTensorType>)!.Buffer.Slice(1 * slicedStrides * tensorToSplit.Strides[0], slicedStrides * tensorToSplit.Strides[0]), newDimensions);
 
-        return new Tuple<Tensor<float>, Tensor<float>>(tensor1, tensor2);
+        return new Tuple<Tensor<TTensorType>, Tensor<TTensorType>>(tensor1, tensor2);
     }
 
-    public static DenseTensor<float> SumTensors(Tensor<float>[] tensorArray, int[] dimensions)
+    public static DenseTensor<TTensorType> SumTensors(Tensor<TTensorType>[] tensorArray, int[] dimensions)
     {
-        var sumTensor = new DenseTensor<float>(dimensions);
-        var sumArray = new float[sumTensor.Length];
+        var sumTensor = new DenseTensor<TTensorType>(dimensions);
+        var sumArray = new TTensorType[sumTensor.Length];
 
         for (int m = 0; m < tensorArray.Count(); m++)
         {
             var tensorToSum = tensorArray[m].ToArray();
             for (var i = 0; i < tensorToSum.Length; i++)
             {
-                sumArray[i] += (float)tensorToSum[i];
+                sumArray[i] += tensorToSum[i];
             }
         }
 
         return CreateTensor(sumArray, dimensions);
     }
 
-    public static DenseTensor<float> Duplicate(float[] data, int[] dimensions)
+    public static DenseTensor<TTensorType> Duplicate(TTensorType[] data, int[] dimensions)
     {
         data = data.Concat(data).ToArray();
         return CreateTensor(data, dimensions);
     }
 
-    public static DenseTensor<float> Concatenate(float[] tensor1, float[] tensor2, int[] dimensions)
+    public static DenseTensor<TTensorType> Concatenate(TTensorType[] tensor1, TTensorType[] tensor2, int[] dimensions)
     {
         tensor1 = tensor1.Concat(tensor2).ToArray();
         return CreateTensor(tensor1, dimensions);
     }
 
-    public static DenseTensor<float> SubtractTensors(float[] sample, float[] subTensor, int[] dimensions)
+    public static DenseTensor<TTensorType> SubtractTensors(TTensorType[] sample, TTensorType[] subTensor, int[] dimensions)
     {
         for (var i = 0; i < sample.Length; i++)
         {
@@ -142,15 +139,15 @@ public class TensorHelper
         return CreateTensor(sample, dimensions);
     }
 
-    public static DenseTensor<float> SubtractTensors(Tensor<float> sample, Tensor<float> subTensor)
+    public static DenseTensor<TTensorType> SubtractTensors(Tensor<TTensorType> sample, Tensor<TTensorType> subTensor)
     {
         return SubtractTensors(sample.ToArray(), subTensor.ToArray(), sample.Dimensions.ToArray());
     }
 
-    public static Tensor<float> GetRandomTensor(ReadOnlySpan<int> dimensions)
+    public static Tensor<TTensorType> GetRandomTensor(ReadOnlySpan<int> dimensions)
     {
         var random = new Random();
-        var latents = new DenseTensor<float>(dimensions);
+        var latents = new DenseTensor<TTensorType>(dimensions);
         var latentsArray = latents.ToArray();
 
         for (int i = 0; i < latentsArray.Length; i++)
@@ -160,8 +157,8 @@ public class TensorHelper
             var u2 = random.NextDouble(); // Uniform(0,1) random number
             var radius = Math.Sqrt(-2.0 * Math.Log(u1)); // Radius of polar coordinates
             var theta = 2.0 * Math.PI * u2; // Angle of polar coordinates
-            var standardNormalRand = radius * Math.Cos(theta); // Standard normal random number
-            latentsArray[i] = (float)standardNormalRand;
+            var standardNormalRand = TTensorType.CreateChecked(radius * Math.Cos(theta)); // Standard normal random number
+            latentsArray[i] = standardNormalRand;
         }
 
         latents = CreateTensor(latentsArray, latents.Dimensions.ToArray());
@@ -169,11 +166,11 @@ public class TensorHelper
         return latents;
     }
 
-    public static DenseTensor<float> Repeat(DenseTensor<float> data, int repeats)
+    public static DenseTensor<TTensorType> Repeat(DenseTensor<TTensorType> data, int repeats)
     {
-        var repeatedData = new float[data.Length * repeats];
+        var repeatedData = new TTensorType[data.Length * repeats];
         var newDimensions = new int[] { data.Dimensions[0] * repeats, data.Dimensions[1], data.Dimensions[2] };
-        for(int i = 0; i < repeats; i++)
+        for (int i = 0; i < repeats; i++)
         {
             data.Buffer.CopyTo(repeatedData.AsMemory(i * (int)data.Length));
         }

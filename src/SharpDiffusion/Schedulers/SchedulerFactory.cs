@@ -15,15 +15,17 @@
 namespace SharpDiffusion.Schedulers;
 
 using SharpDiffusion.Interfaces;
+using System.Numerics;
 
 public class SchedulerFactory
 {
-    public IScheduler GetScheduler(SchedulerType schedulerType)
+    public IScheduler<TTensorType> GetScheduler<TTensorType>(SchedulerType schedulerType)
+        where TTensorType : INumber<TTensorType>/*, IPowerFunctions<TTensorType>, IRootFunctions<TTensorType>*/
     {
         return schedulerType switch
         {
-            SchedulerType.LMSDiscreteScheduler => new LMSDiscreteScheduler(),
-            SchedulerType.EulerAncestralDiscreteScheduler => new EulerAncestralDiscreteScheduler(),
+            SchedulerType.LMSDiscreteScheduler => new LMSDiscreteScheduler<TTensorType>(),
+            //SchedulerType.EulerAncestralDiscreteScheduler => new EulerAncestralDiscreteScheduler<TTensorType>(),
             _ => throw new InvalidOperationException($"Unsupported scheduler type '{schedulerType}'"),
         };
     }

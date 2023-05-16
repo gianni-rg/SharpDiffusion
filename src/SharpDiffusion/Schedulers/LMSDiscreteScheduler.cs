@@ -22,12 +22,14 @@ namespace SharpDiffusion.Schedulers;
 using MathNet.Numerics;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
+using System.Numerics;
 
-public class LMSDiscreteScheduler : SchedulerBase
+public class LMSDiscreteScheduler<TTensorType> : SchedulerBase<TTensorType>
+    where TTensorType : INumber<TTensorType>/*, IPowerFunctions<TTensorType>, IRootFunctions<TTensorType>*/
 {
     private readonly string _predictionType;
 
-    public List<Tensor<float>> Derivatives;
+    public List<Tensor<TTensorType>> Derivatives;
 
     public override List<int> Timesteps { get; protected set; }
     public override Tensor<float> Sigmas { get; protected set; }
@@ -37,7 +39,7 @@ public class LMSDiscreteScheduler : SchedulerBase
     {
         _predictionType = predictionType;
 
-        Derivatives = new List<Tensor<float>>();
+        Derivatives = new List<Tensor<TTensorType>>();
 
 
         var alphas = new List<float>();
@@ -119,16 +121,16 @@ public class LMSDiscreteScheduler : SchedulerBase
         }
     }
 
-    public override DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4)
+    public override DenseTensor<TTensorType> Step(Tensor<TTensorType> modelOutput, int timestep, Tensor<TTensorType> sample, int order = 4)
     {
         int stepIndex = Timesteps.IndexOf(timestep);
         var sigma = Sigmas[stepIndex];
 
         // 1. compute predicted original sample (x_0) from sigma-scaled predicted noise
-        Tensor<float> predOriginalSample;
+        Tensor<TTensorType> predOriginalSample;
 
         // Create array of type float length modelOutput.length
-        float[] predOriginalSampleArray = new float[modelOutput.Length];
+        TTensorType[] predOriginalSampleArray = new TTensorType[modelOutput.Length];
         var modelOutPutArray = modelOutput.ToArray();
         var sampleArray = sample.ToArray();
 
@@ -136,9 +138,9 @@ public class LMSDiscreteScheduler : SchedulerBase
         {
             for (int i = 0; i < modelOutPutArray.Length; i++)
             {
-                predOriginalSampleArray[i] = sampleArray[i] - sigma * modelOutPutArray[i];
+                predOriginalSampleArray[i] = sampleArray[i] - TTensorType.CreateChecked(sigma) * modelOutPutArray[i];
             }
-            predOriginalSample = TensorHelper.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
+            predOriginalSample = TensorHelper<TTensorType>.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
         }
         else if (_predictionType == "v_prediction")
         {
@@ -151,16 +153,16 @@ public class LMSDiscreteScheduler : SchedulerBase
         }
 
         // 2. Convert to an ODE derivative
-        var derivativeItems = new DenseTensor<float>(sample.Dimensions.ToArray());
+        var derivativeItems = new DenseTensor<TTensorType>(sample.Dimensions.ToArray());
 
-        var derivativeItemsArray = new float[derivativeItems.Length];
+        var derivativeItemsArray = new TTensorType[derivativeItems.Length];
 
         for (int i = 0; i < modelOutPutArray.Length; i++)
         {
             //predOriginalSample = (sample - predOriginalSample) / sigma;
-            derivativeItemsArray[i] = (sampleArray[i] - predOriginalSampleArray[i]) / sigma;
+            derivativeItemsArray[i] = (sampleArray[i] - predOriginalSampleArray[i]) / TTensorType.CreateChecked(sigma);
         }
-        derivativeItems = TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
+        derivativeItems = TensorHelper<TTensorType>.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
 
         Derivatives?.Add(derivativeItems);
 
@@ -182,20 +184,20 @@ public class LMSDiscreteScheduler : SchedulerBase
         var lmsCoeffsAndDerivatives = lmsCoeffs.Zip(revDerivatives, (lmsCoeff, derivative) => (lmsCoeff, derivative));
 
         // Create tensor for product of lmscoeffs and derivatives
-        var lmsDerProduct = new Tensor<float>[Derivatives.Count];
+        var lmsDerProduct = new Tensor<TTensorType>[Derivatives.Count];
 
         for (int m = 0; m < lmsCoeffsAndDerivatives.Count(); m++)
         {
             var (lmsCoeff, derivative) = lmsCoeffsAndDerivatives.ElementAt(m);
             // Multiply to coeff by each derivatives to create the new tensors
-            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (float)lmsCoeff, derivative.Dimensions.ToArray());
+            lmsDerProduct[m] = TensorHelper<TTensorType>.MultipleTensorByFloat(derivative.ToArray(), TTensorType.CreateChecked(lmsCoeff), derivative.Dimensions.ToArray());
         }
 
         // Sum the tensors
-        var sumTensor = TensorHelper.SumTensors(lmsDerProduct, new[] { modelOutput.Dimensions[0], 4, 64, 64 });
+        var sumTensor = TensorHelper<TTensorType>.SumTensors(lmsDerProduct, new[] { modelOutput.Dimensions[0], 4, 64, 64 });
 
         // Add the summed tensor to the sample
-        var prevSample = TensorHelper.AddTensors(sample.ToArray(), sumTensor.ToArray(), sample.Dimensions.ToArray());
+        var prevSample = TensorHelper<TTensorType>.AddTensors(sample.ToArray(), sumTensor.ToArray(), sample.Dimensions.ToArray());
 
         return prevSample;
     }

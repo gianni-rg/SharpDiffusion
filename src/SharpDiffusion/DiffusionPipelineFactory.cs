@@ -20,7 +20,9 @@
 namespace SharpDiffusion;
 
 using Microsoft.Extensions.Logging;
+using SharpDiffusion.Interfaces;
 using SharpDiffusion.Schedulers;
+using System.Numerics;
 using System.Text.Json;
 
 public class DiffusionPipelineFactory
@@ -35,12 +37,14 @@ public class DiffusionPipelineFactory
         var type = typeof(T);
         return type switch
         {
-            Type _ when type == typeof(OnnxStableDiffusionPipeline) => ConfigureOnnxStableDiffusionPipeline(configDict, pretrainedModelNameOrPath, provider, sessionOptions, loggerFactory) as T,
+            Type _ when type == typeof(OnnxStableDiffusionPipeline<float>) => ConfigureOnnxStableDiffusionPipeline<float>(configDict, pretrainedModelNameOrPath, provider, sessionOptions, loggerFactory) as T,
+            Type _ when type == typeof(OnnxStableDiffusionPipeline<Half>) => ConfigureOnnxStableDiffusionPipeline<Half>(configDict, pretrainedModelNameOrPath, provider, sessionOptions, loggerFactory) as T,
             _ => default
         };
     }
 
-    private static OnnxStableDiffusionPipeline ConfigureOnnxStableDiffusionPipeline(Dictionary<string, object> config, string cachedFolder, string? provider, Dictionary<string, string>? sessionOptions, ILoggerFactory? loggerFactory = null)
+    private static IDiffusionPipeline ConfigureOnnxStableDiffusionPipeline<TTensorType>(Dictionary<string, object> config, string cachedFolder, string? provider, Dictionary<string, string>? sessionOptions, ILoggerFactory? loggerFactory = null)
+        where TTensorType : INumber<TTensorType>
     {
         var vaeEncoder = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "vae_encoder"), provider: provider, sessionOptions: sessionOptions);
         var vaeDecoder = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "vae_decoder"), provider: provider, sessionOptions: sessionOptions);
@@ -50,7 +54,7 @@ public class DiffusionPipelineFactory
         var tokenizer = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "tokenizer"), provider: provider, sessionOptions: sessionOptions, ortExtensionPath: ".\\runtimes\\win-x64\\native\\ortextensions.dll"); // TODO: improve configuration
         var schedulerType = SchedulerType.LMSDiscreteScheduler; // TODO: improve configuration
 
-        return new OnnxStableDiffusionPipeline(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
+        return new OnnxStableDiffusionPipeline<TTensorType>(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline<TTensorType>>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
     }
 
     private static Dictionary<string, object> DictFromJSONFile(string configFile)

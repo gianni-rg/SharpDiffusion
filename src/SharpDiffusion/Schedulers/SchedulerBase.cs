@@ -12,18 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Based on 'Inference Stable Diffusion with C# and ONNX Runtime' sample code
-// (https://github.com/cassiebreviu/StableDiffusion/)
-// Copyright (C) 2023 Cassie Breviu.
-// Licensed under the MIT License.
-
 namespace SharpDiffusion.Schedulers;
 
-using SharpDiffusion.Interfaces;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
+using SharpDiffusion.Interfaces;
+using System.Numerics;
 
-public abstract class SchedulerBase : IScheduler, IDisposable
+public abstract class SchedulerBase<TTensorType> : IScheduler<TTensorType>, IDisposable
+    where TTensorType : INumber<TTensorType>/*, IPowerFunctions<TTensorType>, IRootFunctions<TTensorType>*/
 {
     protected readonly int _numTrainTimesteps;
     protected List<float> _alphasCumulativeProducts;
@@ -83,7 +80,7 @@ public abstract class SchedulerBase : IScheduler, IDisposable
         return result.ToArray<double>();
     }
 
-    public Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep)
+    public Tensor<TTensorType> ScaleModelInput(Tensor<TTensorType> sample, int timestep)
     {
         // Get step index of timestep from TimeSteps
         int stepIndex = Timesteps.IndexOf(timestep);
@@ -93,7 +90,7 @@ public abstract class SchedulerBase : IScheduler, IDisposable
         sigma = (float)Math.Sqrt(Math.Pow(sigma, 2) + 1);
 
         // Divide sample tensor shape by sigma
-        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), sigma, sample.Dimensions.ToArray());
+        sample = TensorHelper<TTensorType>.DivideTensorByFloat(sample.ToArray(), TTensorType.CreateChecked(sigma), sample.Dimensions.ToArray());
 
         _isScaleInputCalled = true;
 
@@ -102,6 +99,6 @@ public abstract class SchedulerBase : IScheduler, IDisposable
 
     public abstract void SetTimesteps(int numInferenceSteps);
 
-    public abstract DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
+    public abstract DenseTensor<TTensorType> Step(Tensor<TTensorType> modelOutput, int timestep, Tensor<TTensorType> sample, int order = 4);
     public abstract void Dispose();
 }

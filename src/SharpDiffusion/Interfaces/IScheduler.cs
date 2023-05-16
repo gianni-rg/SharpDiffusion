@@ -15,12 +15,14 @@
 namespace SharpDiffusion.Interfaces;
 
 using Microsoft.ML.OnnxRuntime.Tensors;
+using System.Numerics;
 
-public interface IScheduler : IDisposable
+public interface IScheduler<TTensorType> : IDisposable
+    where TTensorType : INumber<TTensorType>/*, IPowerFunctions<TTensorType>, IRootFunctions<TTensorType>*/
 {
     List<int> Timesteps { get; }
     float InitNoiseSigma { get; }
     void SetTimesteps(int numInferenceSteps);
-    DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
-    Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep);
+    DenseTensor<TTensorType> Step(Tensor<TTensorType> modelOutput, int timestep, Tensor<TTensorType> sample, int order = 4);
+    Tensor<TTensorType> ScaleModelInput(Tensor<TTensorType> sample, int timestep);
 }
