@@ -17,17 +17,15 @@ namespace SharpDiffusion.Schedulers;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 using SharpDiffusion.Interfaces;
-using System.Numerics;
 
-public abstract class SchedulerBase<TTensorType> : IScheduler<TTensorType>, IDisposable
-    where TTensorType : INumber<TTensorType>/*, IPowerFunctions<TTensorType>, IRootFunctions<TTensorType>*/
+public abstract class SchedulerBase<TTensorType> : IScheduler, IDisposable
 {
     protected readonly int _numTrainTimesteps;
     protected List<float> _alphasCumulativeProducts;
     public bool _isScaleInputCalled;
 
     public abstract List<int> Timesteps { get; protected set; }
-    public abstract Tensor<float> Sigmas { get; protected set; }
+    public abstract Tensor<TTensorType> Sigmas { get; protected set; }
     public abstract float InitNoiseSigma { get; protected set; }
 
     public SchedulerBase(int numTrainTimesteps = 1000)
@@ -80,25 +78,13 @@ public abstract class SchedulerBase<TTensorType> : IScheduler<TTensorType>, IDis
         return result.ToArray<double>();
     }
 
-    public Tensor<TTensorType> ScaleModelInput(Tensor<TTensorType> sample, int timestep)
-    {
-        // Get step index of timestep from TimeSteps
-        int stepIndex = Timesteps.IndexOf(timestep);
+   
 
-        // Get sigma at stepIndex
-        var sigma = Sigmas[stepIndex];
-        sigma = (float)Math.Sqrt(Math.Pow(sigma, 2) + 1);
-
-        // Divide sample tensor shape by sigma
-        sample = TensorHelper<TTensorType>.DivideTensorByFloat(sample.ToArray(), TTensorType.CreateChecked(sigma), sample.Dimensions.ToArray());
-
-        _isScaleInputCalled = true;
-
-        return sample;
-    }
 
     public abstract void SetTimesteps(int numInferenceSteps);
-
-    public abstract DenseTensor<TTensorType> Step(Tensor<TTensorType> modelOutput, int timestep, Tensor<TTensorType> sample, int order = 4);
+    public abstract Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep);
+    public abstract DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
+    public abstract Tensor<Float16> ScaleModelInput(Tensor<Float16> sample, int timestep);
+    public abstract DenseTensor<Float16> Step(Tensor<Float16> modelOutput, int timestep, Tensor<Float16> sample, int order = 4);
     public abstract void Dispose();
 }

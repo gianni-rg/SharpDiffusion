@@ -23,21 +23,21 @@ using MathNet.Numerics;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 
-public class LMSDiscreteScheduler : SchedulerBase<float>
+public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
 {
     private readonly string _predictionType;
 
-    public List<Tensor<float>> Derivatives;
+    public List<Tensor<Float16>> Derivatives;
 
     public override List<int> Timesteps { get; protected set; }
-    public override Tensor<float> Sigmas { get; protected set; }
+    public override Tensor<Float16> Sigmas { get; protected set; }
     public override float InitNoiseSigma { get; protected set; }
 
-    public LMSDiscreteScheduler(int numTrainTimesteps = 1000, float betaStart = 0.00085f, float betaEnd = 0.012f, string betaSchedule = "scaled_linear", string predictionType = "epsilon", List<float>? trainedBetas = null) : base(numTrainTimesteps)
+    public LMSDiscreteSchedulerFloat16(int numTrainTimesteps = 1000, float betaStart = 0.00085f, float betaEnd = 0.012f, string betaSchedule = "scaled_linear", string predictionType = "epsilon", List<float>? trainedBetas = null) : base(numTrainTimesteps)
     {
         _predictionType = predictionType;
 
-        Derivatives = new List<Tensor<float>>();
+        Derivatives = new List<Tensor<Float16>>();
 
 
         var alphas = new List<float>();
@@ -112,23 +112,23 @@ public class LMSDiscreteScheduler : SchedulerBase<float>
         var sigmas = _alphasCumulativeProducts.Select(alpha_prod => Math.Sqrt((1 - alpha_prod) / alpha_prod)).Reverse().ToList();
         var range = np.arange(0, (double)sigmas.Count).ToArray<double>();
         sigmas = Interpolate(timesteps, range, sigmas).ToList();
-        Sigmas = new DenseTensor<float>(sigmas.Count);
+        Sigmas = new DenseTensor<Float16>(sigmas.Count);
         for (int i = 0; i < sigmas.Count; i++)
         {
-            Sigmas[i] = (float)sigmas[i];
+            Sigmas[i] = (Float16)sigmas[i];
         }
     }
 
-    public override DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4)
+    public override DenseTensor<Float16> Step(Tensor<Float16> modelOutput, int timestep, Tensor<Float16> sample, int order = 4)
     {
         int stepIndex = Timesteps.IndexOf(timestep);
         var sigma = Sigmas[stepIndex];
 
         // 1. compute predicted original sample (x_0) from sigma-scaled predicted noise
-        Tensor<float> predOriginalSample;
+        Tensor<Float16> predOriginalSample;
 
         // Create array of type float length modelOutput.length
-        float[] predOriginalSampleArray = new float[modelOutput.Length];
+        var predOriginalSampleArray = new Float16[modelOutput.Length];
         var modelOutPutArray = modelOutput.ToArray();
         var sampleArray = sample.ToArray();
 
@@ -136,7 +136,7 @@ public class LMSDiscreteScheduler : SchedulerBase<float>
         {
             for (int i = 0; i < modelOutPutArray.Length; i++)
             {
-                predOriginalSampleArray[i] = sampleArray[i] - float.CreateChecked(sigma) * modelOutPutArray[i];
+                predOriginalSampleArray[i] = sampleArray[i].Subtract(sigma.Mul(modelOutPutArray[i]));
             }
             predOriginalSample = TensorHelper.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
         }
@@ -151,14 +151,14 @@ public class LMSDiscreteScheduler : SchedulerBase<float>
         }
 
         // 2. Convert to an ODE derivative
-        var derivativeItems = new DenseTensor<float>(sample.Dimensions.ToArray());
+        var derivativeItems = new DenseTensor<Float16>(sample.Dimensions.ToArray());
 
-        var derivativeItemsArray = new float[derivativeItems.Length];
+        var derivativeItemsArray = new Float16[derivativeItems.Length];
 
         for (int i = 0; i < modelOutPutArray.Length; i++)
         {
             //predOriginalSample = (sample - predOriginalSample) / sigma;
-            derivativeItemsArray[i] = (sampleArray[i] - predOriginalSampleArray[i]) / float.CreateChecked(sigma);
+            derivativeItemsArray[i] = sampleArray[i].Subtract(predOriginalSampleArray[i]).Div(sigma);
         }
         derivativeItems = TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
 
@@ -182,13 +182,13 @@ public class LMSDiscreteScheduler : SchedulerBase<float>
         var lmsCoeffsAndDerivatives = lmsCoeffs.Zip(revDerivatives, (lmsCoeff, derivative) => (lmsCoeff, derivative));
 
         // Create tensor for product of lmscoeffs and derivatives
-        var lmsDerProduct = new Tensor<float>[Derivatives.Count];
+        var lmsDerProduct = new Tensor<Float16>[Derivatives.Count];
 
         for (int m = 0; m < lmsCoeffsAndDerivatives.Count(); m++)
         {
             var (lmsCoeff, derivative) = lmsCoeffsAndDerivatives.ElementAt(m);
             // Multiply to coeff by each derivatives to create the new tensors
-            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), float.CreateChecked(lmsCoeff), derivative.Dimensions.ToArray());
+            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (Float16)lmsCoeff, derivative.Dimensions.ToArray());
         }
 
         // Sum the tensors
@@ -200,30 +200,30 @@ public class LMSDiscreteScheduler : SchedulerBase<float>
         return prevSample;
     }
 
-    public override DenseTensor<Float16> Step(Tensor<Float16> modelOutput, int timestep, Tensor<Float16> sample, int order = 4)
+    public override DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4)
     {
-        throw new NotSupportedException("Please use LMSDiscreteSchedulerFloat16");
+        throw new NotSupportedException("Please use LMSDiscreteSchedulerFloat");
     }
 
-    public override Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep)
+    public override Tensor<Float16> ScaleModelInput(Tensor<Float16> sample, int timestep)
     {
         // Get step index of timestep from TimeSteps
         int stepIndex = Timesteps.IndexOf(timestep);
 
         // Get sigma at stepIndex
         var sigma = Sigmas[stepIndex];
-        sigma = (float)Math.Sqrt(Math.Pow(sigma, 2) + 1);
+        sigma = (Float16)Math.Sqrt(Math.Pow(sigma, 2) + 1);
 
         // Divide sample tensor shape by sigma
-        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), sigma, sample.Dimensions.ToArray());
+        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), (Float16)sigma, sample.Dimensions.ToArray());
 
         _isScaleInputCalled = true;
 
         return sample;
     }
 
-    public override Tensor<Float16> ScaleModelInput(Tensor<Float16> sample, int timestep)
+    public override Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep)
     {
-        throw new NotSupportedException("Please use LMSDiscreteSchedulerFloat16");
+        throw new NotSupportedException("Please use LMSDiscreteScheduler");
     }
 }
