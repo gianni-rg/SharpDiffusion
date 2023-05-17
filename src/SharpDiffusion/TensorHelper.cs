@@ -23,11 +23,11 @@ public class TensorHelper
         return new DenseTensor<TTensorType>(data, dimensions);
     }
 
-    public static DenseTensor<Float16> DivideTensorByFloat(Float16[] data, Float16 value, int[] dimensions)
+    public static DenseTensor<Float16> DivideTensorByFloat(Float16[] data, float value, int[] dimensions)
     {
         for (int i = 0; i < data.Length; i++)
         {
-            data[i] = data[i].Div(value);
+            data[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((float)BitConverter.UInt16BitsToHalf(data[i].value) / value)));
         }
 
         return CreateTensor(data, dimensions);
@@ -52,11 +52,11 @@ public class TensorHelper
         return CreateTensor(data, dimensions);
     }
 
-    public static DenseTensor<Float16> MultipleTensorByFloat(Float16[] data, Float16 value, int[] dimensions)
+    public static DenseTensor<Float16> MultipleTensorByFloat(Float16[] data, float value, int[] dimensions)
     {
         for (int i = 0; i < data.Length; i++)
         {
-            data[i] = data[i].Mul(value);
+            data[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((float)BitConverter.UInt16BitsToHalf(data[i].value) * value)));
         }
 
         return CreateTensor(data, dimensions);
@@ -164,7 +164,7 @@ public class TensorHelper
             var tensorToSum = tensorArray[m].ToArray();
             for (var i = 0; i < tensorToSum.Length; i++)
             {
-                sumArray[i] += tensorToSum[i];
+                sumArray[i] = sumArray[i].Add(tensorToSum[i]);
             }
         }
 
@@ -206,49 +206,49 @@ public class TensorHelper
         return SubtractTensors(sample.ToArray(), subTensor.ToArray(), sample.Dimensions.ToArray());
     }
 
-    public static Tensor<Float16> GetRandomTensorFloat16(ReadOnlySpan<int> dimensions)
-    {
-        var random = new Random();
-        var latents = new DenseTensor<Float16>(dimensions);
-        var latentsArray = latents.ToArray();
+    //public static Tensor<Float16> GetRandomTensorFloat16(ReadOnlySpan<int> dimensions)
+    //{
+    //    var random = new Random();
+    //    var latents = new DenseTensor<Float16>(dimensions);
+    //    var latentsArray = latents.ToArray();
 
-        for (int i = 0; i < latentsArray.Length; i++)
-        {
-            // Generate a random number from a normal distribution with mean 0 and variance 1
-            var u1 = random.NextDouble(); // Uniform(0,1) random number
-            var u2 = random.NextDouble(); // Uniform(0,1) random number
-            var radius = Math.Sqrt(-2.0 * Math.Log(u1)); // Radius of polar coordinates
-            var theta = 2.0 * Math.PI * u2; // Angle of polar coordinates
-            var standardNormalRand = radius * Math.Cos(theta); // Standard normal random number
-            latentsArray[i] = (Float16)standardNormalRand;
-        }
+    //    for (int i = 0; i < latentsArray.Length; i++)
+    //    {
+    //        // Generate a random number from a normal distribution with mean 0 and variance 1
+    //        var u1 = random.NextDouble(); // Uniform(0,1) random number
+    //        var u2 = random.NextDouble(); // Uniform(0,1) random number
+    //        var radius = Math.Sqrt(-2.0 * Math.Log(u1)); // Radius of polar coordinates
+    //        var theta = 2.0 * Math.PI * u2; // Angle of polar coordinates
+    //        var standardNormalRand = radius * Math.Cos(theta); // Standard normal random number
+    //        latentsArray[i] = BitConverter.HalfToUInt16Bits((Half)standardNormalRand);
+    //    }
 
-        latents = CreateTensor(latentsArray, latents.Dimensions.ToArray());
+    //    latents = CreateTensor(latentsArray, latents.Dimensions.ToArray());
 
-        return latents;
-    }
+    //    return latents;
+    //}
 
-    public static Tensor<float> GetRandomTensorFloat(ReadOnlySpan<int> dimensions)
-    {
-        var random = new Random();
-        var latents = new DenseTensor<float>(dimensions);
-        var latentsArray = latents.ToArray();
+    //public static Tensor<float> GetRandomTensorFloat(ReadOnlySpan<int> dimensions)
+    //{
+    //    var random = new Random();
+    //    var latents = new DenseTensor<float>(dimensions);
+    //    var latentsArray = latents.ToArray();
 
-        for (int i = 0; i < latentsArray.Length; i++)
-        {
-            // Generate a random number from a normal distribution with mean 0 and variance 1
-            var u1 = random.NextDouble(); // Uniform(0,1) random number
-            var u2 = random.NextDouble(); // Uniform(0,1) random number
-            var radius = Math.Sqrt(-2.0 * Math.Log(u1)); // Radius of polar coordinates
-            var theta = 2.0 * Math.PI * u2; // Angle of polar coordinates
-            var standardNormalRand = radius * Math.Cos(theta); // Standard normal random number
-            latentsArray[i] = (float)standardNormalRand;
-        }
+    //    for (int i = 0; i < latentsArray.Length; i++)
+    //    {
+    //        // Generate a random number from a normal distribution with mean 0 and variance 1
+    //        var u1 = random.NextDouble(); // Uniform(0,1) random number
+    //        var u2 = random.NextDouble(); // Uniform(0,1) random number
+    //        var radius = Math.Sqrt(-2.0 * Math.Log(u1)); // Radius of polar coordinates
+    //        var theta = 2.0 * Math.PI * u2; // Angle of polar coordinates
+    //        var standardNormalRand = radius * Math.Cos(theta); // Standard normal random number
+    //        latentsArray[i] = (float)standardNormalRand;
+    //    }
 
-        latents = CreateTensor(latentsArray, latents.Dimensions.ToArray());
+    //    latents = CreateTensor(latentsArray, latents.Dimensions.ToArray());
 
-        return latents;
-    }
+    //    return latents;
+    //}
 
     public static DenseTensor<TTensorType> Repeat<TTensorType>(DenseTensor<TTensorType> data, int repeats)
     {

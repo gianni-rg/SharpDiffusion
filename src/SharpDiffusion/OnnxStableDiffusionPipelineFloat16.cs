@@ -25,7 +25,11 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using SharpDiffusion.Schedulers;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Text;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
 {
@@ -177,7 +181,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
 
         // Scale and decode the image latents with VAE
         //latents = 1 / 0.18215 * latents;
-        latents = TensorHelper.MultipleTensorByFloat(latents.ToArray(), (Float16)(1.0f / 0.18215f), latents.Dimensions.ToArray());
+        latents = TensorHelper.MultipleTensorByFloat(latents.ToArray(), 1.0f / 0.18215f, latents.Dimensions.ToArray());
 
         // Decode image(s)
         //# image = self.vae_decoder(latent_sample=latents)[0]
@@ -341,7 +345,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
 
             // Add noise to latents (scaled by scheduler.InitNoiseSigma)
             // Generate randoms that are negative and positive
-            latentsArray[i] = (Float16)(standardNormalRand * initNoiseSigma);
+            latentsArray[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((float)standardNormalRand * initNoiseSigma)));
         }
 
         latents = TensorHelper.CreateTensor(latentsArray, latents.Dimensions.ToArray());
@@ -354,7 +358,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         var input = new List<NamedOnnxValue> {
                 NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderHiddenStates),
                 NamedOnnxValue.CreateFromTensor("sample", sample),
-                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { (Float16)timeStep }, new int[] { 1 }))
+                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { new Float16((ushort)timeStep) }, new int[] { 1 }))
             };
 
         return input;
@@ -370,7 +374,9 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 {
                     for (int l = 0; l < noisePred.Dimensions[3]; l++)
                     {
-                        noisePred[i, j, k, l] = noisePred[i, j, k, l].Add((Float16)(guidanceScale * (noisePredText[i, j, k, l] - noisePred[i, j, k, l])));
+                        var noisePredFloat = (float)BitConverter.UInt16BitsToHalf(noisePred[i, j, k, l]);
+                        var noisePredTextFloat = (float)BitConverter.UInt16BitsToHalf(noisePredText[i, j, k, l]);
+                        noisePred[i, j, k, l] = new Float16(BitConverter.HalfToUInt16Bits((Half)(noisePredFloat + (float)guidanceScale * (noisePredTextFloat - noisePredFloat))));
                     }
                 }
             }
@@ -420,15 +426,64 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
     {
         // Create input tensor
         var input_ids = TensorHelper.CreateTensor(tokenizedInputs.SelectMany(l => l).ToArray(), new[] { tokenizedInputs.Count, config.TokenizerModelMaxLength });
-        var input = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor<int>("input_ids", input_ids) };
+        var input = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("input_ids", input_ids) };
 
         var encoded = _textEncoder.Run(input);
 
         var lastHiddenState = encoded.First().AsEnumerable<Float16>();
         var lastHiddenStateTensor = TensorHelper.CreateTensor(lastHiddenState.ToArray(), new[] { tokenizedInputs.Count, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
-
+                
         return lastHiddenStateTensor;
     }
+
+    //float CreateSingle(bool sign, byte exp, uint sig) => BitConverter.UInt32BitsToSingle(((sign ? 1U : 0U) << 31) + ((uint)exp << 23) + sig);
+    //double CreateDouble(bool sign, ushort exp, ulong sig) => BitConverter.UInt64BitsToDouble(((sign ? 1UL : 0UL) << 63) + ((ulong)exp << 52) + sig);
+
+    //static string FloatToBinary(float f)
+    //{
+    //    StringBuilder sb = new StringBuilder();
+    //    Byte[] ba = BitConverter.GetBytes(f);
+    //    foreach (Byte b in ba)
+    //        for (int i = 0; i < 8; i++)
+    //        {
+    //            sb.Insert(0, ((b >> i) & 1) == 1 ? "1" : "0");
+    //        }
+    //    string s = sb.ToString();
+    //    string r = s.Substring(0, 1) + " " + s.Substring(1, 8) + " " + s.Substring(9); //sign exponent mantissa
+    //    return r;
+    //}
+
+    //float CreateSingle(ushort n)
+    //{
+    //    Debug.Assert(n >= 0 && n <= 65535);
+    //    var sign = n >> 15;
+    //    var exp = (n >> 10) & 0b011111;
+    //    var fraction = n & (2^10 - 1);
+    //    if (exp == 0)
+    //    {
+    //        if (fraction == 0)
+    //        {
+    //            return sign == 1 ? -0.0f : 0.0f;
+    //        }
+    //        else
+    //        {
+    //            return (-1)^sign * fraction / 2^10 * 2^(-14);  // subnormal
+    //        }
+    //    }
+    //    else if (exp == 0b11111)
+    //    {
+    //        if (fraction == 0)
+    //        {
+    //            return sign == 1 ? float.NegativeInfinity : float.PositiveInfinity;
+    //        }
+    //    }
+    //    else
+    //    {
+    //        return float.NaN;
+    //    }
+
+    //    return (-1)^sign * (1 + fraction / 2^10) * 2^(exp - 15);
+    //}
 
     public static List<int[]> CreateUncondInput(int batchSize, StableDiffusionConfig config)
     {
@@ -463,9 +518,9 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 for (var x = 0; x < config.Width; x++)
                 {
                     result[x, y] = new Rgba32(
-                        (byte)Math.Round(Math.Clamp(((float)(Half)(float)output[i][0, 0, y, x]) / 2 + 0.5, 0, 1) * 255),
-                        (byte)Math.Round(Math.Clamp(((float)(Half)(float)output[i][0, 1, y, x]) / 2 + 0.5, 0, 1) * 255),
-                        (byte)Math.Round(Math.Clamp(((float)(Half)(float)output[i][0, 2, y, x]) / 2 + 0.5, 0, 1) * 255)
+                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 0, y, x])) / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 1, y, x])) / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 2, y, x])) / 2 + 0.5, 0, 1) * 255)
                     );
                 }
             }

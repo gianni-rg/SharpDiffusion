@@ -23,7 +23,7 @@ using MathNet.Numerics;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 
-public class LMSDiscreteScheduler : SchedulerBase<float>
+public class LMSDiscreteScheduler : SchedulerBase
 {
     private readonly string _predictionType;
 

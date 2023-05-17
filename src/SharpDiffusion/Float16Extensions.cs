@@ -20,34 +20,34 @@ public static class Float16Extensions
 {
     public static Float16 Add(this Float16 t1, Float16 t2)
     {
-        Half half1 = (Half)(float)t1;
-        Half half2 = (Half)(float)t2;
+        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
+        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
 
-        return (Float16)(float)(half1 + half2);
+        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 + half2)));
 
     }
 
     public static Float16 Subtract(this Float16 t1, Float16 t2)
     {
-        Half half1 = (Half)(float)t1;
-        Half half2 = (Half)(float)t2;
+        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
+        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
 
-        return (Float16)(float)(half1 - half2);
+        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 - half2)));
     }
 
     public static Float16 Mul(this Float16 t1, Float16 t2)
     {
-        Half half1 = (Half)(float)t1;
-        Half half2 = (Half)(float)t2;
+        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
+        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
 
-        return (Float16)(float)(half1 * half2);
+        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 * half2)));
     }
 
     public static Float16 Div(this Float16 t1, Float16 t2)
     {
-        Half half1 = (Half)(float)t1;
-        Half half2 = (Half)(float)t2;
+        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
+        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
 
-        return (Float16)(float)(half1 / half2);
+        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 / half2)));
     }
 }

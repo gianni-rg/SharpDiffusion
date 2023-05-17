@@ -18,14 +18,14 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 using SharpDiffusion.Interfaces;
 
-public abstract class SchedulerBase<TTensorType> : IScheduler, IDisposable
+public abstract class SchedulerBase : IScheduler, IDisposable
 {
     protected readonly int _numTrainTimesteps;
     protected List<float> _alphasCumulativeProducts;
     public bool _isScaleInputCalled;
 
     public abstract List<int> Timesteps { get; protected set; }
-    public abstract Tensor<TTensorType> Sigmas { get; protected set; }
+    public abstract Tensor<float> Sigmas { get; protected set; }
     public abstract float InitNoiseSigma { get; protected set; }
 
     public SchedulerBase(int numTrainTimesteps = 1000)
@@ -77,9 +77,6 @@ public abstract class SchedulerBase<TTensorType> : IScheduler, IDisposable
 
         return result.ToArray<double>();
     }
-
-   
-
 
     public abstract void SetTimesteps(int numInferenceSteps);
     public abstract Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep);

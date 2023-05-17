@@ -23,14 +23,14 @@ using MathNet.Numerics;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 
-public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
+public class LMSDiscreteSchedulerFloat16 : SchedulerBase
 {
     private readonly string _predictionType;
 
     public List<Tensor<Float16>> Derivatives;
 
     public override List<int> Timesteps { get; protected set; }
-    public override Tensor<Float16> Sigmas { get; protected set; }
+    public override Tensor<float> Sigmas { get; protected set; }
     public override float InitNoiseSigma { get; protected set; }
 
     public LMSDiscreteSchedulerFloat16(int numTrainTimesteps = 1000, float betaStart = 0.00085f, float betaEnd = 0.012f, string betaSchedule = "scaled_linear", string predictionType = "epsilon", List<float>? trainedBetas = null) : base(numTrainTimesteps)
@@ -112,10 +112,10 @@ public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
         var sigmas = _alphasCumulativeProducts.Select(alpha_prod => Math.Sqrt((1 - alpha_prod) / alpha_prod)).Reverse().ToList();
         var range = np.arange(0, (double)sigmas.Count).ToArray<double>();
         sigmas = Interpolate(timesteps, range, sigmas).ToList();
-        Sigmas = new DenseTensor<Float16>(sigmas.Count);
+        Sigmas = new DenseTensor<float>(sigmas.Count);
         for (int i = 0; i < sigmas.Count; i++)
         {
-            Sigmas[i] = (Float16)sigmas[i];
+            Sigmas[i] = (float)sigmas[i];
         }
     }
 
@@ -125,18 +125,18 @@ public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
         var sigma = Sigmas[stepIndex];
 
         // 1. compute predicted original sample (x_0) from sigma-scaled predicted noise
-        Tensor<Float16> predOriginalSample;
+        Tensor<float> predOriginalSample;
 
         // Create array of type float length modelOutput.length
-        var predOriginalSampleArray = new Float16[modelOutput.Length];
-        var modelOutPutArray = modelOutput.ToArray();
-        var sampleArray = sample.ToArray();
+        var predOriginalSampleArray = new float[modelOutput.Length];
+        var modelOutPutArray = modelOutput.Select(fp16val => (float)BitConverter.UInt16BitsToHalf(fp16val)).ToArray();
+        var sampleArray = sample.Select(fp16val => (float)BitConverter.UInt16BitsToHalf(fp16val)).ToArray();
 
         if (_predictionType == "epsilon")
         {
             for (int i = 0; i < modelOutPutArray.Length; i++)
             {
-                predOriginalSampleArray[i] = sampleArray[i].Subtract(sigma.Mul(modelOutPutArray[i]));
+                predOriginalSampleArray[i] = sampleArray[i] - sigma * modelOutPutArray[i];
             }
             predOriginalSample = TensorHelper.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
         }
@@ -158,7 +158,7 @@ public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
         for (int i = 0; i < modelOutPutArray.Length; i++)
         {
             //predOriginalSample = (sample - predOriginalSample) / sigma;
-            derivativeItemsArray[i] = sampleArray[i].Subtract(predOriginalSampleArray[i]).Div(sigma);
+            derivativeItemsArray[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((sampleArray[i] - predOriginalSampleArray[i]) / sigma)));
         }
         derivativeItems = TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
 
@@ -188,7 +188,7 @@ public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
         {
             var (lmsCoeff, derivative) = lmsCoeffsAndDerivatives.ElementAt(m);
             // Multiply to coeff by each derivatives to create the new tensors
-            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (Float16)lmsCoeff, derivative.Dimensions.ToArray());
+            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (float)lmsCoeff, derivative.Dimensions.ToArray());
         }
 
         // Sum the tensors
@@ -212,10 +212,10 @@ public class LMSDiscreteSchedulerFloat16 : SchedulerBase<Float16>
 
         // Get sigma at stepIndex
         var sigma = Sigmas[stepIndex];
-        sigma = (Float16)Math.Sqrt(Math.Pow(sigma, 2) + 1);
+        sigma = (float)Math.Sqrt(Math.Pow(sigma, 2) + 1);
 
         // Divide sample tensor shape by sigma
-        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), (Float16)sigma, sample.Dimensions.ToArray());
+        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), sigma, sample.Dimensions.ToArray());
 
         _isScaleInputCalled = true;
 
