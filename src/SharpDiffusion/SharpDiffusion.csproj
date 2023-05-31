@@ -10,10 +10,10 @@
     <Description>An EXPERIMENTAL implementation of Diffusers in .NET, ported from Python libraries</Description>
     <Copyright>Copyright (C) 2022-2023 Gianni Rosa Gallina</Copyright>
     <PackageProjectUrl></PackageProjectUrl>
-    <Version>0.0.3.0-alpha</Version>
+    <Version>0.0.4.0-alpha</Version>
     <RepositoryUrl>https://github.com/gianni-rg/SharpDiffusion</RepositoryUrl>
-    <AssemblyVersion>0.0.3.0</AssemblyVersion>
-    <FileVersion>0.0.3.0</FileVersion>
+    <AssemblyVersion>0.0.4.0</AssemblyVersion>
+    <FileVersion>0.0.4.0</FileVersion>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -22,9 +22,9 @@
   <ItemGroup>
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" Version="0.8.0-alpha" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.14.1" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.14.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" Version="0.8.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.15.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.15.0" />
     <PackageReference Include="NumSharp" Version="0.30.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
   </ItemGroup>
