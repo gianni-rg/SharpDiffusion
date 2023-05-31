@@ -17,4 +17,5 @@ namespace SharpDiffusion.Interfaces;
 public interface IDiffusionPipeline
 {
     public StableDiffusionPipelineOutput Run(List<string> prompts, List<string> negativePrompts, StableDiffusionConfig config, Action<int>? callback = null);
+    public void Dispose();
 }

@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace SharpDiffusion.Schedulers;
-
 using SharpDiffusion.Interfaces;
+
+namespace SharpDiffusion.Schedulers;
 
 public class SchedulerFactory
 {
-    public IScheduler GetScheduler(SchedulerType schedulerType)
+    public IScheduler GetScheduler<TTensorType>(SchedulerType schedulerType)
     {
         return schedulerType switch
         {
-            SchedulerType.LMSDiscreteScheduler => new LMSDiscreteScheduler(),
-            SchedulerType.EulerAncestralDiscreteScheduler => new EulerAncestralDiscreteScheduler(),
+            SchedulerType.LMSDiscreteScheduler => typeof(TTensorType) == typeof(float) ? new LMSDiscreteScheduler() : new LMSDiscreteSchedulerFloat16(),
+            //SchedulerType.EulerAncestralDiscreteScheduler => new EulerAncestralDiscreteScheduler<TTensorType>(),
             _ => throw new InvalidOperationException($"Unsupported scheduler type '{schedulerType}'"),
         };
     }

@@ -22,5 +22,7 @@ public interface IScheduler : IDisposable
     float InitNoiseSigma { get; }
     void SetTimesteps(int numInferenceSteps);
     DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
+    DenseTensor<Float16> Step(Tensor<Float16> modelOutput, int timestep, Tensor<Float16> sample, int order = 4);
     Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep);
+    Tensor<Float16> ScaleModelInput(Tensor<Float16> sample, int timestep);
 }

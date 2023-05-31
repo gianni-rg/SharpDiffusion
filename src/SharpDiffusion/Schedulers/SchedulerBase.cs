@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Based on 'Inference Stable Diffusion with C# and ONNX Runtime' sample code
-// (https://github.com/cassiebreviu/StableDiffusion/)
-// Copyright (C) 2023 Cassie Breviu.
-// Licensed under the MIT License.
-
 namespace SharpDiffusion.Schedulers;
 
-using SharpDiffusion.Interfaces;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
+using SharpDiffusion.Interfaces;
 
 public abstract class SchedulerBase : IScheduler, IDisposable
 {
@@ -83,25 +78,10 @@ public abstract class SchedulerBase : IScheduler, IDisposable
         return result.ToArray<double>();
     }
 
-    public Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep)
-    {
-        // Get step index of timestep from TimeSteps
-        int stepIndex = Timesteps.IndexOf(timestep);
-
-        // Get sigma at stepIndex
-        var sigma = Sigmas[stepIndex];
-        sigma = (float)Math.Sqrt(Math.Pow(sigma, 2) + 1);
-
-        // Divide sample tensor shape by sigma
-        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), sigma, sample.Dimensions.ToArray());
-
-        _isScaleInputCalled = true;
-
-        return sample;
-    }
-
     public abstract void SetTimesteps(int numInferenceSteps);
-
+    public abstract Tensor<float> ScaleModelInput(Tensor<float> sample, int timestep);
     public abstract DenseTensor<float> Step(Tensor<float> modelOutput, int timestep, Tensor<float> sample, int order = 4);
+    public abstract Tensor<Float16> ScaleModelInput(Tensor<Float16> sample, int timestep);
+    public abstract DenseTensor<Float16> Step(Tensor<Float16> modelOutput, int timestep, Tensor<Float16> sample, int order = 4);
     public abstract void Dispose();
 }

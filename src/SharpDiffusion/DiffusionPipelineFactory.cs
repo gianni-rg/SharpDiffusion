@@ -20,6 +20,8 @@
 namespace SharpDiffusion;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.ML.OnnxRuntime.Tensors;
+using SharpDiffusion.Interfaces;
 using SharpDiffusion.Schedulers;
 using System.Text.Json;
 
@@ -28,19 +30,19 @@ public class DiffusionPipelineFactory
     /// <summary>
     /// Instantiate a Diffusion Pipeline from pre-trained pipeline weights
     /// </summary>
-    public static T? FromPretrained<T>(string pretrainedModelNameOrPath, string? provider = null, Dictionary<string, string>? sessionOptions = null, ILoggerFactory? loggerFactory = null) where T : class
+    public static IDiffusionPipeline? FromPretrained<T>(string pretrainedModelNameOrPath, string? provider = null, bool halfPrecision = false, Dictionary<string, string>? sessionOptions = null, ILoggerFactory? loggerFactory = null) where T : class
     {
         var configDict = DictFromJSONFile(Path.Join(pretrainedModelNameOrPath, DiffusionPipeline.MODEL_CONFIG_FILENAME));
 
         var type = typeof(T);
         return type switch
         {
-            Type _ when type == typeof(OnnxStableDiffusionPipeline) => ConfigureOnnxStableDiffusionPipeline(configDict, pretrainedModelNameOrPath, provider, sessionOptions, loggerFactory) as T,
+            Type _ when type == typeof(OnnxStableDiffusionPipeline) => ConfigureOnnxStableDiffusionPipeline(configDict, pretrainedModelNameOrPath, provider, halfPrecision, sessionOptions, loggerFactory),
             _ => default
         };
     }
 
-    private static OnnxStableDiffusionPipeline ConfigureOnnxStableDiffusionPipeline(Dictionary<string, object> config, string cachedFolder, string? provider, Dictionary<string, string>? sessionOptions, ILoggerFactory? loggerFactory = null)
+    private static IDiffusionPipeline ConfigureOnnxStableDiffusionPipeline(Dictionary<string, object> config, string cachedFolder, string? provider, bool halfPrecision, Dictionary<string, string>? sessionOptions, ILoggerFactory? loggerFactory = null)
     {
         var vaeEncoder = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "vae_encoder"), provider: provider, sessionOptions: sessionOptions);
         var vaeDecoder = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "vae_decoder"), provider: provider, sessionOptions: sessionOptions);
@@ -50,7 +52,14 @@ public class DiffusionPipelineFactory
         var tokenizer = OnnxRuntimeModel.FromPretrained(Path.Join(cachedFolder, "tokenizer"), provider: provider, sessionOptions: sessionOptions, ortExtensionPath: ".\\runtimes\\win-x64\\native\\ortextensions.dll"); // TODO: improve configuration
         var schedulerType = SchedulerType.LMSDiscreteScheduler; // TODO: improve configuration
 
-        return new OnnxStableDiffusionPipeline(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
+        if (halfPrecision)
+        {
+            return new OnnxStableDiffusionPipelineFloat16(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
+        }
+        else 
+        {
+            return new OnnxStableDiffusionPipeline(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
+        }
     }
 
     private static Dictionary<string, object> DictFromJSONFile(string configFile)
