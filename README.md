@@ -16,16 +16,19 @@ This is an *experimental* .NET implementation of the [diffusers](https://github.
 **It is an on-going work in progress, built in my spare time for fun & learning.**
 
 Currently it's only a *very basic, bare-bone, partial porting of the original library*.  
-Many of the features are not there yet (i.e. safety check model is not supported), and it only works using the original *Stable Diffusion v1.x ONNX models*.
+Many of the features are not there yet (i.e. safety check model is not supported).  
+It supports the original *Stable Diffusion v1.x ONNX models*, as well as *FP16 optimized ONNX models*.
 
-> You can find an example application using this library in this project: [Generative AI .NET Playground](https://github.com/gianni-rg/gen-ai-net-playground)
+> You can find a CLI and an Avalonia example applications using this library in this project: [Generative AI .NET Playground](https://github.com/gianni-rg/gen-ai-net-playground)
 
 You have to get the models from Hugging Face:
 
 - [Stable Diffusion Models v1.4](https://huggingface.co/CompVis/stable-diffusion-v1-4)
 - [Stable Diffusion Models v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 
-Once you have selected a model version repository, click `Files and Versions`, then select the `ONNX branch`. Clone the repository (you need Git LFS to get the pre-trained model weights). Once cloned, set the proper path to load the models from, using `OnnxStableDiffusionPipeline.FromPretrained`. The folders that will be used are: `unet`, `vae_decoder`, `text_encoder`.
+Once you have selected a model version repository, click `Files and Versions`, then select the `ONNX branch`. Clone the repository (you need Git LFS to get the pre-trained model weights). Once cloned, set the proper path to load the models from, using `DiffusionPipelineFactory.FromPretrained`. The folders that will be used are: `unet`, `vae_decoder`, `text_encoder`.
+
+Follow [this guide](https://medium.com/microsoftazure/accelerating-stable-diffusion-inference-with-onnx-runtime-203bd7728540) to get FP16 optimized ONNX models.
 
 For the tokenizer model ([CLIP Tokenizer](https://huggingface.co/docs/transformers/model_doc/clip)), currently the library leverages the implementation provided by Microsoft in the [ONNX Runtime Extensions](https://github.com/microsoft/onnxruntime-extensions). You can get the pre-trained ONNX model from the [ONNX Runtime Extensions .NET Samples](https://github.com/microsoft/onnxruntime-extensions/tree/main/tutorials/demo4dotnet/ClipTokenizerTest) folder: copy it in the `tokenizer` folder, along with the other models, and rename it as `model.onnx`.
 
@@ -47,6 +50,8 @@ For the tokenizer model ([CLIP Tokenizer](https://huggingface.co/docs/transforme
 
 Clone the repository and build. You should be able to generate the library and use it in your own projects.
 
+As alternative, you can get a pre-compiled binary version of the library on [NuGet](https://www.nuget.org/packages/SharpDiffusion/). Remember to thick 'Include prerelease' when looking for the `SharpDiffusion` library.
+
 ### Minimal usage sample
 
 ```csharp
@@ -58,8 +63,8 @@ var options = new Dictionary<string, string> {
 
 var modelId = "PATH-TO-ONNX-MODELS-FOLDER";
 var provider = "CUDAExecutionProvider"; // "CPUExecutionProvider";
-
-var sdPipeline = OnnxStableDiffusionPipeline.FromPretrained(modelId, provider: provider, sessionOptions: options);
+var halfPrecision = false; // or true
+var sdPipeline = DiffusionPipelineFactory.FromPretrained<OnnxStableDiffusionPipeline>(modelId, provider, halfPrecision, options);
 
 var sdConfig = new StableDiffusionConfig
 {
