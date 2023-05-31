@@ -191,7 +191,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
             //image = image.transpose((0, 2, 3, 1)); // swap channels (BCHW -> BHWC)
             var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor<float>("latent_sample", TensorHelper.CreateTensor((latents as DenseTensor<float>)!.Buffer.Slice(i * latents.Strides[0], latents.Strides[0]).ToArray(), new[] { 1, config.Channels, config.Height / 8, config.Width / 8 })) };
             var decoderOutput = _vaeDecoder.Run(decoderInput);
-            var imageResultTensor = decoderOutput.First().Value as Tensor<float>;
+            var imageResultTensor = decoderOutput.First().AsTensor<float>();
             resultTensors.Add(imageResultTensor!);
         }
 
@@ -341,7 +341,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
 
             // Add noise to latents (scaled by scheduler.InitNoiseSigma)
             // Generate randoms that are negative and positive
-            latentsArray[i] = float.CreateChecked(standardNormalRand * initNoiseSigma);
+            latentsArray[i] = (float)(standardNormalRand * initNoiseSigma);
         }
 
         latents = TensorHelper.CreateTensor(latentsArray, latents.Dimensions.ToArray());
@@ -370,7 +370,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
                 {
                     for (int l = 0; l < noisePred.Dimensions[3]; l++)
                     {
-                        noisePred[i, j, k, l] = noisePred[i, j, k, l] + float.CreateChecked(guidanceScale) * (noisePredText[i, j, k, l] - noisePred[i, j, k, l]);
+                        noisePred[i, j, k, l] = noisePred[i, j, k, l] + (float)guidanceScale * (noisePredText[i, j, k, l] - noisePred[i, j, k, l]);
                     }
                 }
             }

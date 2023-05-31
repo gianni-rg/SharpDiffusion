@@ -128,7 +128,7 @@ public class LMSDiscreteScheduler : SchedulerBase
         Tensor<float> predOriginalSample;
 
         // Create array of type float length modelOutput.length
-        float[] predOriginalSampleArray = new float[modelOutput.Length];
+		var predOriginalSampleArray = new float[modelOutput.Length];
         var modelOutPutArray = modelOutput.ToArray();
         var sampleArray = sample.ToArray();
 
@@ -136,7 +136,7 @@ public class LMSDiscreteScheduler : SchedulerBase
         {
             for (int i = 0; i < modelOutPutArray.Length; i++)
             {
-                predOriginalSampleArray[i] = sampleArray[i] - float.CreateChecked(sigma) * modelOutPutArray[i];
+                predOriginalSampleArray[i] = sampleArray[i] - (float)sigma * modelOutPutArray[i];
             }
             predOriginalSample = TensorHelper.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
         }
@@ -158,7 +158,7 @@ public class LMSDiscreteScheduler : SchedulerBase
         for (int i = 0; i < modelOutPutArray.Length; i++)
         {
             //predOriginalSample = (sample - predOriginalSample) / sigma;
-            derivativeItemsArray[i] = (sampleArray[i] - predOriginalSampleArray[i]) / float.CreateChecked(sigma);
+            derivativeItemsArray[i] = (sampleArray[i] - predOriginalSampleArray[i]) / (float)(sigma);
         }
         derivativeItems = TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
 
@@ -188,7 +188,7 @@ public class LMSDiscreteScheduler : SchedulerBase
         {
             var (lmsCoeff, derivative) = lmsCoeffsAndDerivatives.ElementAt(m);
             // Multiply to coeff by each derivatives to create the new tensors
-            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), float.CreateChecked(lmsCoeff), derivative.Dimensions.ToArray());
+            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (float)lmsCoeff, derivative.Dimensions.ToArray());
         }
 
         // Sum the tensors
