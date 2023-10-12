@@ -20,6 +20,7 @@
 namespace SharpDiffusion.Schedulers;
 
 using MathNet.Numerics;
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 

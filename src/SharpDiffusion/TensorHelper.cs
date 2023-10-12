@@ -14,6 +14,7 @@
 
 namespace SharpDiffusion;
 
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
 public class TensorHelper
@@ -69,7 +70,7 @@ public class TensorHelper
 
     public static DenseTensor<Float16> MultipleTensorByFloat(Tensor<Float16> data, Float16 value)
     {
-        return MultipleTensorByFloat(data.ToArray(), value, data.Dimensions.ToArray());
+        return MultipleTensorByFloat(data.ToArray(), (float)value, data.Dimensions.ToArray());
     }
 
     public static DenseTensor<float> AddTensors(float[] sample, float[] sumTensor, int[] dimensions)

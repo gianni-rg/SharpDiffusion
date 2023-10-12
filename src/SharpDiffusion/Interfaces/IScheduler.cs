@@ -14,6 +14,7 @@
 
 namespace SharpDiffusion.Interfaces;
 
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
 public interface IScheduler : IDisposable

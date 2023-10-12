@@ -199,23 +199,21 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         //var decoderOutput = _vaeDecoder.Run(decoderInput);
         //var imageResultTensor = decoderOutput.First().Value as Tensor<float>;
 
-        // TODO: implement safety checker model
-        List<bool[]>? hasNsfwConcept = null;
+        List<bool> hasNsfwConcept = new List<bool>();
         if (_safetyChecker is not null)
         {
             //var safetyCheckerInput = _featureExtractor(numpy_to_pil(image), return_tensors: "np").pixel_values.astype(image.dtype);
             //image, has_nsfw_concepts = _safetyChecker.Run(clip_input: safety_checker_input, images: image);
 
-            //// There will throw an error if use safety_checker batchsize>1
-            //var images = new List<object>();
-            //hasNsfwConcept = new List<object>();
-            //for (int i = 0; i < image.Shape[0]; i++)
+            //TODO: to be ported from Python
+            //foreach (var resultImage in resultTensors)
             //{
-            //    image_i, has_nsfw_concept_i = _SafetyChecker(clip_input: safety_checker_input[i: i + 1], images: image[i: i + 1]);
-            //    images.Add(image_i);
-            //    has_nsfw_concept.Add(has_nsfw_concept_i);
+            //    // There will throw an error if use SafetyChecker batch size > 1
+            //    var safetyCheckerInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("clip_input", resultImage) };
+            //    var safetyCheckerOutput = _safetyChecker.Run(safetyCheckerInput);
+            //    var result = safetyCheckerOutput.First().AsEnumerable<int>().First();
+            //    hasNsfwConcept.Add(result == 1);
             //}
-            //image = np.concatenate(images);
         }
 
         //TODO: to be fully ported from Python

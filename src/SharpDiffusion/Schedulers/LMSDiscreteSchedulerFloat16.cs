@@ -20,6 +20,7 @@
 namespace SharpDiffusion.Schedulers;
 
 using MathNet.Numerics;
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 
@@ -129,8 +130,8 @@ public class LMSDiscreteSchedulerFloat16 : SchedulerBase
 
         // Create array of type float length modelOutput.length
         var predOriginalSampleArray = new float[modelOutput.Length];
-        var modelOutPutArray = modelOutput.Select(fp16val => (float)BitConverter.UInt16BitsToHalf(fp16val)).ToArray();
-        var sampleArray = sample.Select(fp16val => (float)BitConverter.UInt16BitsToHalf(fp16val)).ToArray();
+        var modelOutPutArray = modelOutput.Select(fp16val => (float)BitConverter.UInt16BitsToHalf((ushort)fp16val)).ToArray();
+        var sampleArray = sample.Select(fp16val => (float)BitConverter.UInt16BitsToHalf((ushort)fp16val)).ToArray();
 
         if (_predictionType == "epsilon")
         {

@@ -14,7 +14,7 @@
 
 namespace SharpDiffusion;
 
-using Microsoft.ML.OnnxRuntime.Tensors;
+using Microsoft.ML.OnnxRuntime;
 
 public static class Float16Extensions
 {

@@ -204,7 +204,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         //var imageResultTensor = decoderOutput.First().Value as Tensor<float>;
 
         // TODO: implement safety checker model
-        List<bool[]>? hasNsfwConcept = null;
+        List<bool>? hasNsfwConcept = null;
         if (_safetyChecker is not null)
         {
             //var safetyCheckerInput = _featureExtractor(numpy_to_pil(image), return_tensors: "np").pixel_values.astype(image.dtype);
@@ -358,7 +358,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         var input = new List<NamedOnnxValue> {
                 NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderHiddenStates),
                 NamedOnnxValue.CreateFromTensor("sample", sample),
-                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { BitConverter.HalfToUInt16Bits((Half)timeStep) }, new int[] { 1 }))
+                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { (Float16)BitConverter.HalfToUInt16Bits((Half)timeStep) }, new int[] { 1 }))
             };
 
         return input;
@@ -374,8 +374,8 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 {
                     for (int l = 0; l < noisePred.Dimensions[3]; l++)
                     {
-                        var noisePredFloat = (float)BitConverter.UInt16BitsToHalf(noisePred[i, j, k, l]);
-                        var noisePredTextFloat = (float)BitConverter.UInt16BitsToHalf(noisePredText[i, j, k, l]);
+                        var noisePredFloat = (float)BitConverter.UInt16BitsToHalf((ushort)noisePred[i, j, k, l]);
+                        var noisePredTextFloat = (float)BitConverter.UInt16BitsToHalf((ushort)noisePredText[i, j, k, l]);
                         noisePred[i, j, k, l] = new Float16(BitConverter.HalfToUInt16Bits((Half)(noisePredFloat + (float)guidanceScale * (noisePredTextFloat - noisePredFloat))));
                     }
                 }
@@ -518,9 +518,9 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 for (var x = 0; x < config.Width; x++)
                 {
                     result[x, y] = new Rgba32(
-                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 0, y, x])) / 2 + 0.5, 0, 1) * 255),
-                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 1, y, x])) / 2 + 0.5, 0, 1) * 255),
-                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 2, y, x])) / 2 + 0.5, 0, 1) * 255)
+                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf((ushort)output[i][0, 0, y, x])) / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf((ushort)output[i][0, 1, y, x])) / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf((ushort)output[i][0, 2, y, x])) / 2 + 0.5, 0, 1) * 255)
                     );
                 }
             }
