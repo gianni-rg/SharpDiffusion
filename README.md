@@ -16,7 +16,7 @@ This is an *experimental* .NET implementation of the [diffusers](https://github.
 **It is an on-going work in progress, built in my spare time for fun & learning.**
 
 Currently it's only a *very basic, bare-bone, partial porting of the original library*.  
-Many of the features are not there yet (i.e. safety check model is not supported).  
+Many of the features are not there yet (i.e. image-to-image, SDXL models, etc.).  
 It supports the original *Stable Diffusion v1.x ONNX models*, as well as *FP16 optimized ONNX models*.
 
 > You can find a CLI and an Avalonia example applications using this library in this project: [Generative AI .NET Playground](https://github.com/gianni-rg/gen-ai-net-playground)
