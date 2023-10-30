@@ -14,9 +14,10 @@
 
 namespace SharpDiffusion;
 
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-public class TensorHelper
+public static class TensorHelpers
 {
     public static DenseTensor<TTensorType> CreateTensor<TTensorType>(TTensorType[] data, int[] dimensions)
     {
@@ -27,7 +28,7 @@ public class TensorHelper
     {
         for (int i = 0; i < data.Length; i++)
         {
-            data[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((float)BitConverter.UInt16BitsToHalf(data[i].value) / value)));
+            data[i] = data[i].Div((Float16)value);
         }
 
         return CreateTensor(data, dimensions);
@@ -52,11 +53,11 @@ public class TensorHelper
         return CreateTensor(data, dimensions);
     }
 
-    public static DenseTensor<Float16> MultipleTensorByFloat(Float16[] data, float value, int[] dimensions)
+    public static DenseTensor<Float16> MultipleTensorByFloat(Float16[] data, Float16 value, int[] dimensions)
     {
         for (int i = 0; i < data.Length; i++)
         {
-            data[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((float)BitConverter.UInt16BitsToHalf(data[i].value) * value)));
+            data[i] = data[i].Mul(value);
         }
 
         return CreateTensor(data, dimensions);

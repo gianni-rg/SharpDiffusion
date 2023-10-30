@@ -25,11 +25,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using SharpDiffusion.Schedulers;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
 {
@@ -135,16 +131,15 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         // Set timesteps
         scheduler.SetTimesteps(config.NumInferenceSteps);
 
-        var input = new List<NamedOnnxValue>();
         for (int t = 0; t < scheduler.Timesteps.Count; t++)
         {
             // Expand the latents if we are doing classifier free guidance
-            var latentModelInput = doClassifierFreeGuidance ? TensorHelper.Duplicate(latents.ToArray(), new[] { 2 * batchSize * config.NumImagesPerPrompt, config.Channels, config.Height / 8, config.Width / 8 }) : latents;
+            var latentModelInput = doClassifierFreeGuidance ? TensorHelpers.Duplicate(latents.ToArray(), new[] { 2 * batchSize * config.NumImagesPerPrompt, config.Channels, config.Height / 8, config.Width / 8 }) : latents;
             latentModelInput = scheduler.ScaleModelInput(latentModelInput, scheduler.Timesteps[t]);
 
             // Predict the noise residual
             //var noisePred = _unet.Score(sample = latentModelInput, timestep = _scheduler.Timesteps[t], encoderHiddenStates = textEmbeddings);
-            input = CreateUnetModelInput(textEmbeddings, latentModelInput, scheduler.Timesteps[t]);
+            var input = CreateUnetModelInput(textEmbeddings, latentModelInput, scheduler.Timesteps[t]);
 
             // Run Inference
             var unetOutput = _unet.Run(input);
@@ -161,7 +156,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 // Split tensors from 2 * (batchSize * config.NumImagesPerPrompt),4,64,64 to 1 * (batchSize * config.NumImagesPerPrompt),4,64,64
                 //noisePredUncond, noisePredText = np.split(noisePred, 2);
                 //var (noisePredUncond, noisePredText) = TensorHelper.SplitTensor(noisePred, new[] { batchSize * config.NumImagesPerPrompt, config.Channels, config.Height / 8, config.Width / 8 });
-                var (noisePredUncond, noisePredText) = TensorHelper.SplitTensor(noisePred, 2);
+                var (noisePredUncond, noisePredText) = TensorHelpers.SplitTensor(noisePred, 2);
                 //noisePred = noisePredUncond + guidanceScale * (noisePredText - noisePredUncond);
                 noisePred = PerformGuidance(noisePredUncond, noisePredText, config.GuidanceScale);
             }
@@ -181,7 +176,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
 
         // Scale and decode the image latents with VAE
         //latents = 1 / 0.18215 * latents;
-        latents = TensorHelper.MultipleTensorByFloat(latents.ToArray(), 1.0f / 0.18215f, latents.Dimensions.ToArray());
+        latents = TensorHelpers.MultipleTensorByFloat(latents.ToArray(), (Float16)(1.0f / 0.18215f), latents.Dimensions.ToArray());
 
         // Decode image(s)
         //# image = self.vae_decoder(latent_sample=latents)[0]
@@ -193,7 +188,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
             //image = _vaeDecoder(latent_sample: latents[i: i + 1])[0];
             //image = np.clip(image / 2 + 0.5, 0, 1);
             //image = image.transpose((0, 2, 3, 1)); // swap channels (BCHW -> BHWC)
-            var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("latent_sample", TensorHelper.CreateTensor((latents as DenseTensor<Float16>)!.Buffer.Slice(i * latents.Strides[0], latents.Strides[0]).ToArray(), new[] { 1, config.Channels, config.Height / 8, config.Width / 8 })) };
+            var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("latent_sample", TensorHelpers.CreateTensor((latents as DenseTensor<Float16>)!.Buffer.Slice(i * latents.Strides[0], latents.Strides[0]).ToArray(), new[] { 1, config.Channels, config.Height / 8, config.Width / 8 })) };
             var decoderOutput = _vaeDecoder.Run(decoderInput);
             var imageResultTensor = decoderOutput.First().AsTensor<Float16>();
             resultTensors.Add(imageResultTensor!);
@@ -204,7 +199,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         //var imageResultTensor = decoderOutput.First().Value as Tensor<float>;
 
         // TODO: implement safety checker model
-        List<bool[]>? hasNsfwConcept = null;
+        List<bool>? hasNsfwConcept = null;
         if (_safetyChecker is not null)
         {
             //var safetyCheckerInput = _featureExtractor(numpy_to_pil(image), return_tensors: "np").pixel_values.astype(image.dtype);
@@ -268,7 +263,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         //var textEmbeddings = _textEncoder.Run(textInputIds)[0];
         var textEmbeddings = EncodeText(textInputsIds, config);
         //textEmbeddings = np.repeat(textEmbeddings, numImagesPerPrompt, axis: 0);
-        textEmbeddings = TensorHelper.Repeat(textEmbeddings, config.NumImagesPerPrompt);
+        textEmbeddings = TensorHelpers.Repeat(textEmbeddings, config.NumImagesPerPrompt);
 
         // Get unconditional embeddings for classifier free guidance
         if (doClassifierFreeGuidance)
@@ -306,12 +301,12 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
             //var uncondEmbeddings = _textEncoder(input_ids: uncond_input.input_ids.astype(np.int32))[0];
             var uncondEmbeddings = EncodeText(uncondInput, config);
             //uncondEmbeddings = np.repeat(uncondEmbeddings, numImagesPerPrompt, axis: 0);
-            uncondEmbeddings = TensorHelper.Repeat(uncondEmbeddings, config.NumImagesPerPrompt);
+            uncondEmbeddings = TensorHelpers.Repeat(uncondEmbeddings, config.NumImagesPerPrompt);
 
             // For classifier free guidance, we need to do two forward passes.
             // Here we concatenate the unconditional and text embeddings into a single batch to avoid doing two forward passes.
             //text_embeddings = np.concatenate([uncond_embeddings, text_embeddings]);
-            var textEmbeddingsTensor = TensorHelper.Concatenate(uncondEmbeddings.ToArray(), textEmbeddings.ToArray(), new[] { 2 * batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
+            var textEmbeddingsTensor = TensorHelpers.Concatenate(uncondEmbeddings.ToArray(), textEmbeddings.ToArray(), new[] { 2 * batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
 
             //DenseTensor<float> textEmbeddingsTensor = new DenseTensor<float>(new[] { 2 * batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
             //for (var i = 0; i < textEmbeddings.Length; i++)
@@ -324,7 +319,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         }
         else
         {
-            return TensorHelper.CreateTensor(textEmbeddings.ToArray(), new[] { batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
+            return TensorHelpers.CreateTensor(textEmbeddings.ToArray(), new[] { batchSize * config.NumImagesPerPrompt, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
         }
     }
 
@@ -345,10 +340,10 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
 
             // Add noise to latents (scaled by scheduler.InitNoiseSigma)
             // Generate randoms that are negative and positive
-            latentsArray[i] = new Float16(BitConverter.HalfToUInt16Bits((Half)((float)standardNormalRand * initNoiseSigma)));
+            latentsArray[i] = (Float16)((float)standardNormalRand * initNoiseSigma);
         }
 
-        latents = TensorHelper.CreateTensor(latentsArray, latents.Dimensions.ToArray());
+        latents = TensorHelpers.CreateTensor(latentsArray, latents.Dimensions.ToArray());
 
         return latents;
     }
@@ -358,7 +353,7 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
         var input = new List<NamedOnnxValue> {
                 NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderHiddenStates),
                 NamedOnnxValue.CreateFromTensor("sample", sample),
-                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { BitConverter.HalfToUInt16Bits((Half)timeStep) }, new int[] { 1 }))
+                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { (Float16)timeStep }, new int[] { 1 }))
             };
 
         return input;
@@ -374,9 +369,9 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 {
                     for (int l = 0; l < noisePred.Dimensions[3]; l++)
                     {
-                        var noisePredFloat = (float)BitConverter.UInt16BitsToHalf(noisePred[i, j, k, l]);
-                        var noisePredTextFloat = (float)BitConverter.UInt16BitsToHalf(noisePredText[i, j, k, l]);
-                        noisePred[i, j, k, l] = new Float16(BitConverter.HalfToUInt16Bits((Half)(noisePredFloat + (float)guidanceScale * (noisePredTextFloat - noisePredFloat))));
+                        var noisePredFloat = noisePred[i, j, k, l];
+                        var noisePredTextFloat = noisePredText[i, j, k, l];
+                        noisePred[i, j, k, l] = noisePredFloat.Add(noisePredTextFloat.Subtract(noisePredFloat).Mul((Float16)guidanceScale));
                     }
                 }
             }
@@ -425,14 +420,14 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
     public DenseTensor<Float16> EncodeText(List<int[]> tokenizedInputs, StableDiffusionConfig config)
     {
         // Create input tensor
-        var input_ids = TensorHelper.CreateTensor(tokenizedInputs.SelectMany(l => l).ToArray(), new[] { tokenizedInputs.Count, config.TokenizerModelMaxLength });
+        var input_ids = TensorHelpers.CreateTensor(tokenizedInputs.SelectMany(l => l).ToArray(), new[] { tokenizedInputs.Count, config.TokenizerModelMaxLength });
         var input = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("input_ids", input_ids) };
 
         var encoded = _textEncoder.Run(input);
 
         var lastHiddenState = encoded.First().AsEnumerable<Float16>();
-        var lastHiddenStateTensor = TensorHelper.CreateTensor(lastHiddenState.ToArray(), new[] { tokenizedInputs.Count, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
-                
+        var lastHiddenStateTensor = TensorHelpers.CreateTensor(lastHiddenState.ToArray(), new[] { tokenizedInputs.Count, config.TokenizerModelMaxLength, config.ModelEmbeddingSize });
+
         return lastHiddenStateTensor;
     }
 
@@ -518,9 +513,9 @@ public class OnnxStableDiffusionPipelineFloat16 : DiffusionPipeline
                 for (var x = 0; x < config.Width; x++)
                 {
                     result[x, y] = new Rgba32(
-                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 0, y, x])) / 2 + 0.5, 0, 1) * 255),
-                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 1, y, x])) / 2 + 0.5, 0, 1) * 255),
-                        (byte)Math.Round(Math.Clamp(((float)BitConverter.UInt16BitsToHalf(output[i][0, 2, y, x])) / 2 + 0.5, 0, 1) * 255)
+                        (byte)Math.Round(Math.Clamp(((float)output[i][0, 0, y, x]) / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(((float)output[i][0, 1, y, x]) / 2 + 0.5, 0, 1) * 255),
+                        (byte)Math.Round(Math.Clamp(((float)output[i][0, 2, y, x]) / 2 + 0.5, 0, 1) * 255)
                     );
                 }
             }

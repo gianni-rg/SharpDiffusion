@@ -14,40 +14,44 @@
 
 namespace SharpDiffusion;
 
-using Microsoft.ML.OnnxRuntime.Tensors;
+using Microsoft.ML.OnnxRuntime;
+using System.Runtime.CompilerServices;
 
 public static class Float16Extensions
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Float16 Add(this Float16 t1, Float16 t2)
     {
-        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
-        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
+        var half1 = (float)t1;
+        var half2 = (float)t2;
 
-        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 + half2)));
-
+        return (Float16)(half1 + half2);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Float16 Subtract(this Float16 t1, Float16 t2)
     {
-        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
-        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
-
-        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 - half2)));
+        var half1 = (float)t1;
+        var half2 = (float)t2;
+        
+        return (Float16)(half1 - half2);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Float16 Mul(this Float16 t1, Float16 t2)
     {
-        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
-        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
+        var half1 = (float)t1;
+        var half2 = (float)t2;
 
-        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 * half2)));
+        return (Float16)(half1 * half2);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Float16 Div(this Float16 t1, Float16 t2)
     {
-        var half1 = (float)BitConverter.UInt16BitsToHalf(t1.value);
-        var half2 = (float)BitConverter.UInt16BitsToHalf(t2.value);
+        var half1 = (float)t1;
+        var half2 = (float)t2;
 
-        return new Float16(BitConverter.HalfToUInt16Bits((Half)(half1 / half2)));
+        return (Float16)(half1 / half2);
     }
 }

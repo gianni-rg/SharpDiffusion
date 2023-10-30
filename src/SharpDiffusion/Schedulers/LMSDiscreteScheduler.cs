@@ -20,6 +20,7 @@
 namespace SharpDiffusion.Schedulers;
 
 using MathNet.Numerics;
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
 
@@ -138,7 +139,7 @@ public class LMSDiscreteScheduler : SchedulerBase
             {
                 predOriginalSampleArray[i] = sampleArray[i] - (float)sigma * modelOutPutArray[i];
             }
-            predOriginalSample = TensorHelper.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
+            predOriginalSample = TensorHelpers.CreateTensor(predOriginalSampleArray, modelOutput.Dimensions.ToArray());
         }
         else if (_predictionType == "v_prediction")
         {
@@ -160,7 +161,7 @@ public class LMSDiscreteScheduler : SchedulerBase
             //predOriginalSample = (sample - predOriginalSample) / sigma;
             derivativeItemsArray[i] = (sampleArray[i] - predOriginalSampleArray[i]) / (float)(sigma);
         }
-        derivativeItems = TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
+        derivativeItems = TensorHelpers.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
 
         Derivatives?.Add(derivativeItems);
 
@@ -188,14 +189,14 @@ public class LMSDiscreteScheduler : SchedulerBase
         {
             var (lmsCoeff, derivative) = lmsCoeffsAndDerivatives.ElementAt(m);
             // Multiply to coeff by each derivatives to create the new tensors
-            lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(derivative.ToArray(), (float)lmsCoeff, derivative.Dimensions.ToArray());
+            lmsDerProduct[m] = TensorHelpers.MultipleTensorByFloat(derivative.ToArray(), (float)lmsCoeff, derivative.Dimensions.ToArray());
         }
 
         // Sum the tensors
-        var sumTensor = TensorHelper.SumTensors(lmsDerProduct, new[] { modelOutput.Dimensions[0], 4, 64, 64 });
+        var sumTensor = TensorHelpers.SumTensors(lmsDerProduct, new[] { modelOutput.Dimensions[0], 4, 64, 64 });
 
         // Add the summed tensor to the sample
-        var prevSample = TensorHelper.AddTensors(sample.ToArray(), sumTensor.ToArray(), sample.Dimensions.ToArray());
+        var prevSample = TensorHelpers.AddTensors(sample.ToArray(), sumTensor.ToArray(), sample.Dimensions.ToArray());
 
         return prevSample;
     }
@@ -215,7 +216,7 @@ public class LMSDiscreteScheduler : SchedulerBase
         sigma = (float)Math.Sqrt(Math.Pow(sigma, 2) + 1);
 
         // Divide sample tensor shape by sigma
-        sample = TensorHelper.DivideTensorByFloat(sample.ToArray(), sigma, sample.Dimensions.ToArray());
+        sample = TensorHelpers.DivideTensorByFloat(sample.ToArray(), sigma, sample.Dimensions.ToArray());
 
         _isScaleInputCalled = true;
 

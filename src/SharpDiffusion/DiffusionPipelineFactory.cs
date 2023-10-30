@@ -20,7 +20,6 @@
 namespace SharpDiffusion;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.ML.OnnxRuntime.Tensors;
 using SharpDiffusion.Interfaces;
 using SharpDiffusion.Schedulers;
 using System.Text.Json;
@@ -54,9 +53,9 @@ public class DiffusionPipelineFactory
 
         if (halfPrecision)
         {
-            return new OnnxStableDiffusionPipelineFloat16(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
+            return new OnnxStableDiffusionPipelineFloat16(loggerFactory?.CreateLogger<OnnxStableDiffusionPipelineFloat16>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
         }
-        else 
+        else
         {
             return new OnnxStableDiffusionPipeline(loggerFactory?.CreateLogger<OnnxStableDiffusionPipeline>(), vaeEncoder, vaeDecoder, textEncoder, tokenizer, unet, schedulerType, safetyChecker, requiresSafetyChecker: false);
         }
