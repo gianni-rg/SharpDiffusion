@@ -23,6 +23,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SharpDiffusion.Schedulers;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -131,7 +133,6 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         // Set timesteps
         scheduler.SetTimesteps(config.NumInferenceSteps);
 
-        var input = new List<NamedOnnxValue>();
         for (int t = 0; t < scheduler.Timesteps.Count; t++)
         {
             // Expand the latents if we are doing classifier free guidance
@@ -140,7 +141,7 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
 
             // Predict the noise residual
             //var noisePred = _unet.Score(sample = latentModelInput, timestep = _scheduler.Timesteps[t], encoderHiddenStates = textEmbeddings);
-            input = CreateUnetModelInput(textEmbeddings, latentModelInput, scheduler.Timesteps[t]);
+            var input = CreateUnetModelInput(textEmbeddings, latentModelInput, scheduler.Timesteps[t]);
 
             // Run Inference
             var unetOutput = _unet.Run(input);
@@ -189,32 +190,12 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
             //image = _vaeDecoder(latent_sample: latents[i: i + 1])[0];
             //image = np.clip(image / 2 + 0.5, 0, 1);
             //image = image.transpose((0, 2, 3, 1)); // swap channels (BCHW -> BHWC)
-            var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor<float>("latent_sample", TensorHelpers.CreateTensor((latents as DenseTensor<float>)!.Buffer.Slice(i * latents.Strides[0], latents.Strides[0]).ToArray(), new[] { 1, config.Channels, config.Height / 8, config.Width / 8 })) };
+            var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("latent_sample", TensorHelpers.CreateTensor((latents as DenseTensor<float>)!.Buffer.Slice(i * latents.Strides[0], latents.Strides[0]).ToArray(), new[] { 1, config.Channels, config.Height / 8, config.Width / 8 })) };
             var decoderOutput = _vaeDecoder.Run(decoderInput);
             var imageResultTensor = decoderOutput.First().AsTensor<float>();
             resultTensors.Add(imageResultTensor!);
         }
 
-        //var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("latent_sample", latents) };
-        //var decoderOutput = _vaeDecoder.Run(decoderInput);
-        //var imageResultTensor = decoderOutput.First().Value as Tensor<float>;
-
-        List<bool> hasNsfwConcept = new List<bool>();
-        if (_safetyChecker is not null)
-        {
-            //var safetyCheckerInput = _featureExtractor(numpy_to_pil(image), return_tensors: "np").pixel_values.astype(image.dtype);
-            //image, has_nsfw_concepts = _safetyChecker.Run(clip_input: safety_checker_input, images: image);
-
-            //TODO: to be ported from Python
-            //foreach (var resultImage in resultTensors)
-            //{
-            //    // There will throw an error if use SafetyChecker batch size > 1
-            //    var safetyCheckerInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("clip_input", resultImage) };
-            //    var safetyCheckerOutput = _safetyChecker.Run(safetyCheckerInput);
-            //    var result = safetyCheckerOutput.First().AsEnumerable<int>().First();
-            //    hasNsfwConcept.Add(result == 1);
-            //}
-        }
 
         //TODO: to be fully ported from Python
         // see: https://docs.sixlabors.com/articles/imagesharp/pixelbuffers.html
@@ -231,9 +212,67 @@ public class OnnxStableDiffusionPipeline : DiffusionPipeline
         var images = ConvertToImages(resultTensors, config);
         //}
 
+        List<bool> hasNsfwConcept = new List<bool>();
+        if (_safetyChecker is not null)
+        {
+            foreach (var image in images)
+            {
+                // CLIP input (BCHW), Image input (BHWC)
+                var (inputTensor, inputImageTensor) = PreprocessImageForCLIPFeatureExtractor(image);
+
+                // There will throw an error if use SafetyChecker batch size > 1
+                var safetyCheckerInput = new List<NamedOnnxValue> {
+                    NamedOnnxValue.CreateFromTensor("clip_input", inputTensor),
+                    NamedOnnxValue.CreateFromTensor("images", inputImageTensor)
+                };
+
+                var safetyCheckerOutput = _safetyChecker.Run(safetyCheckerInput);
+                var result = safetyCheckerOutput.Last().AsEnumerable<bool>().First();
+                hasNsfwConcept.Add(result);
+            }
+        }
+
         scheduler.Dispose();
 
         return new StableDiffusionPipelineOutput(images: images, nsfwContentDetected: hasNsfwConcept);
+    }
+
+    private (Tensor<float>, Tensor<float>) PreprocessImageForCLIPFeatureExtractor(Image<Rgba32> image)
+    {
+        // Resize image to 224x224
+        var scaledImage = image.Clone(x =>
+        {
+            x.Resize(new ResizeOptions
+            {
+                Size = new Size(224, 224),
+                Mode = ResizeMode.Crop
+            });
+        });
+        
+        // Preprocess image
+        var inputTensor = new DenseTensor<float>(new[] { 1, 3, 224, 224 });
+        var inputImageTensor = new DenseTensor<float>(new[] { 1, 224, 224, 3 });
+        var mean = new[] { 0.485f, 0.456f, 0.406f };
+        var stddev = new[] { 0.229f, 0.224f, 0.225f };
+        scaledImage.ProcessPixelRows(pixelAccessor =>
+        {
+            for (int y = 0; y < pixelAccessor.Height; y++)
+            {
+                Span<Rgba32> pixelSpan = pixelAccessor.GetRowSpan(y);
+
+                for (int x = 0; x < pixelSpan.Length; x++)
+                {
+                    inputTensor[0, 0, y, x] = ((pixelSpan[x].R / 255f) - mean[0]) / stddev[0];
+                    inputTensor[0, 1, y, x] = ((pixelSpan[x].G / 255f) - mean[1]) / stddev[1];
+                    inputTensor[0, 2, y, x] = ((pixelSpan[x].B / 255f) - mean[2]) / stddev[2];
+                    inputImageTensor[0, y, x, 0] = inputTensor[0, 0, y, x];
+                    inputImageTensor[0, y, x, 1] = inputTensor[0, 1, y, x];
+                    inputImageTensor[0, y, x, 2] = inputTensor[0, 2, y, x];
+                }
+            }
+        });
+
+        return (inputTensor, inputImageTensor);
     }
 
     /// <summary>

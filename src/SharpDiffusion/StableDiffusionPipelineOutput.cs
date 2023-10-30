@@ -27,14 +27,14 @@ public class StableDiffusionPipelineOutput : BaseOutput
     /// <summary>
     /// List of denoised images of length 'batchSize'. Images array present the denoised images of the diffusion pipeline.
     /// </summary>
-    public List<Image<Rgba32>>? Images { get; private set; }
+    public List<Image<Rgba32>> Images { get; private set; }
 
     /// <summary>
     /// List of flags denoting whether the corresponding generated image likely represents "Not Safe For Work" (NSFW) content, or <c>null</c> if safety checking could not be performed.
     /// </summary>
-    public List<bool>? NSFWContentDetected { get; private set; }
+    public List<bool> NSFWContentDetected { get; private set; }
 
-    public StableDiffusionPipelineOutput(List<Image<Rgba32>>? images, List<bool>? nsfwContentDetected)
+    public StableDiffusionPipelineOutput(List<Image<Rgba32>> images, List<bool> nsfwContentDetected)
     {
         Images = images;
         NSFWContentDetected = nsfwContentDetected;
